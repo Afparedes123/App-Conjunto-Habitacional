@@ -15,8 +15,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from database import SessionLocal, engine
 from models import Base, Unit, User, UserRole
 from routers.auth import router as auth_router
+from routers.financial import router as financial_router
 from routers.payments import router as payments_router
 from routers.units import router as units_router
+from scheduler import shutdown_scheduler, start_scheduler
 from security import hash_password
 
 
@@ -82,9 +84,14 @@ def seed_database_if_empty() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Ciclo de vida de la aplicación: asegura las tablas e inicialización."""
+    """Ciclo de vida de la aplicación: asegura las tablas, inicialización y schedulers."""
     seed_database_if_empty()
+    enable_sched = os.getenv("ENABLE_SCHEDULER", "false").lower() == "true"
+    if enable_sched:
+        start_scheduler()
     yield
+    if enable_sched:
+        shutdown_scheduler()
 
 
 # ==============================================================================
@@ -117,6 +124,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(units_router)
 app.include_router(payments_router)
+app.include_router(financial_router)
 
 
 # ==============================================================================
