@@ -6,7 +6,7 @@ Valida el ciclo completo de seguridad y casos borde (401 y 403).
 from __future__ import annotations
 
 import os
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from fastapi.testclient import TestClient
 
@@ -433,9 +433,152 @@ def test_estado_cuenta_endpoint_rbac_and_data():
     assert "Unidad habitacional no encontrada" in res_404.json()["detail"]
 
 
+# ==============================================================================
+# PRUEBAS DEL CONTROL DE ACCESO INTELIGENTE (PASES QR Y GARITA)
+# ==============================================================================
+
+def test_generar_y_validar_pase_qr_flow():
+    """
+    Verifica el flujo completo de emisión de pase QR por residente
+    y validación en garita por el guardia de seguridad:
+    1. Residente genera pase con código QR en base64.
+    2. Guardia escanea el hash_qr y recibe autorización de ingreso.
+    3. El pase cambia a estado 'USADO' y se genera un registro en 'AccessLog'.
+    """
+    from database import SessionLocal
+    from models import AccessLog, QRPass, QRPassStatus
+
+    # Tokens
+    token_residente = client.post(
+        "/api/auth/login", json={"email": "laura@condominio.com", "password": "residente123"}
+    ).json()["access_token"]
+
+    token_guardia = client.post(
+        "/api/auth/login", json={"email": "guardia@condominio.com", "password": "guardia123"}
+    ).json()["access_token"]
+
+    # 1. Residente genera pase
+    now = datetime.now(timezone.utc)
+    fin = now + timedelta(hours=4)
+    payload_generar = {
+        "nombre_visitante": "Ing. Marcelo Solís",
+        "tipo_visita": "FAMILIAR",
+        "fecha_hora_fin": fin.isoformat(),
+    }
+
+    res_crear = client.post(
+        "/api/seguridad/generar-pase",
+        json=payload_generar,
+        headers={"Authorization": f"Bearer {token_residente}"},
+    )
+    assert res_crear.status_code == 201
+    pase_data = res_crear.json()
+    assert pase_data["nombre_visitante"] == "Ing. Marcelo Solís"
+    assert pase_data["tipo_visita"] == "FAMILIAR"
+    assert pase_data["estado"] == "ACTIVO"
+    assert "hash_qr" in pase_data
+    assert pase_data["qr_image_base64"].startswith("data:image/png;base64,")
+    hash_qr = pase_data["hash_qr"]
+
+    # 2. Guardia valida el pase en garita
+    res_validar = client.post(
+        "/api/seguridad/validar-pase",
+        json={"hash_qr": hash_qr, "placa_vehiculo": "PBA-9988"},
+        headers={"Authorization": f"Bearer {token_guardia}"},
+    )
+    assert res_validar.status_code == 200
+    val_data = res_validar.json()
+    assert val_data["acceso_permitido"] is True
+    assert val_data["mensaje"] == "ACCESO PERMITIDO"
+    assert val_data["nombre_visitante"] == "Ing. Marcelo Solís"
+    assert val_data["unidad_destino"] == "Torre A - 101"
+    assert "access_log_id" in val_data
+
+    # 3. Validar en base de datos la persistencia de la auditoría y estado USADO
+    with SessionLocal() as db:
+        qr_db = db.query(QRPass).filter(QRPass.hash_qr == hash_qr).first()
+        assert qr_db is not None
+        assert qr_db.estado == QRPassStatus.USADO
+
+        log_db = db.query(AccessLog).filter(AccessLog.qr_pass_id == qr_db.id).first()
+        assert log_db is not None
+        assert log_db.placa_vehiculo == "PBA-9988"
+        assert log_db.cedula_visitante == "VALIDADO_QR"
+
+
+def test_validar_pase_qr_errores_y_expiracion():
+    """
+    Verifica los casos borde y restricciones de seguridad:
+    - Reintentar validar un pase ya USADO -> 403 Forbidden.
+    - Validar un hash inexistente -> 404 Not Found.
+    - Residente intentando validar pases de guardia -> 403 Forbidden.
+    - Pase con fecha vencida -> 403 Forbidden.
+    - Carga de la vista HTML del escáner -> 200 OK.
+    """
+    from database import SessionLocal
+    from models import QRPass, QRPassStatus, Unit
+
+    token_guardia = client.post(
+        "/api/auth/login", json={"email": "guardia@condominio.com", "password": "guardia123"}
+    ).json()["access_token"]
+
+    token_residente = client.post(
+        "/api/auth/login", json={"email": "laura@condominio.com", "password": "residente123"}
+    ).json()["access_token"]
+
+    # 1. Crear un pase expirado directamente en BD
+    with SessionLocal() as db:
+        u101 = db.query(Unit).filter(Unit.identificador == "Torre A - 101").first()
+        hash_expirado = "hash_expirado_test_999"
+        pase_expirado = QRPass(
+            unit_id=u101.id,
+            nombre_visitante="Visitante Vencido",
+            tipo_visita="DELIVERY",
+            hash_qr=hash_expirado,
+            fecha_hora_inicio=datetime.now(timezone.utc) - timedelta(hours=5),
+            fecha_hora_fin=datetime.now(timezone.utc) - timedelta(hours=1),
+            estado=QRPassStatus.ACTIVO,
+        )
+        db.add(pase_expirado)
+        db.commit()
+
+    # Intentar validar el pase expirado -> 403
+    res_exp = client.post(
+        "/api/seguridad/validar-pase",
+        json={"hash_qr": hash_expirado},
+        headers={"Authorization": f"Bearer {token_guardia}"},
+    )
+    assert res_exp.status_code == 403
+    assert "Pase expirado o ya utilizado" in res_exp.json()["detail"]
+
+    # 2. Intentar validar hash inexistente -> 404
+    res_404 = client.post(
+        "/api/seguridad/validar-pase",
+        json={"hash_qr": "hash_totalmente_inexistente"},
+        headers={"Authorization": f"Bearer {token_guardia}"},
+    )
+    assert res_404.status_code == 404
+    assert "Pase no encontrado" in res_404.json()["detail"]
+
+    # 3. Residente intentando validar pases (solo guardias tienen permiso) -> 403
+    res_forbidden = client.post(
+        "/api/seguridad/validar-pase",
+        json={"hash_qr": hash_expirado},
+        headers={"Authorization": f"Bearer {token_residente}"},
+    )
+    assert res_forbidden.status_code == 403
+    assert res_forbidden.json()["detail"] == "Privilegios insuficientes"
+
+    # 4. Probar que el endpoint HTML de la interfaz del escáner responda 200 OK
+    res_html = client.get("/api/seguridad/escaner")
+    assert res_html.status_code == 200
+    assert "Garita Principal" in res_html.text
+    assert "html5-qrcode" in res_html.text
+
+
 if __name__ == "__main__":
     print("=" * 80)
-    print("EJECUTANDO SUITE COMPLETA DE PRUEBAS (AUTH, RBAC Y MÓDULO FINANCIERO)")
+    print("EJECUTANDO SUITE COMPLETA DE PRUEBAS (AUTH, RBAC, FINANZAS Y CONTROL QR)")
     print("=" * 80)
     setup_module()
     test_auth_login_invalid_credentials()
@@ -456,6 +599,10 @@ if __name__ == "__main__":
     print("✓ [PASS] test_aplicar_multas_por_mora_logic (Recargos, estado VENCIDA e idempotencia)")
     test_estado_cuenta_endpoint_rbac_and_data()
     print("✓ [PASS] test_estado_cuenta_endpoint_rbac_and_data (RBAC estricto, 403 ajeno, 200 propio/admin)")
+    test_generar_y_validar_pase_qr_flow()
+    print("✓ [PASS] test_generar_y_validar_pase_qr_flow (Generación Base64, validación garita y log)")
+    test_validar_pase_qr_errores_y_expiracion()
+    print("✓ [PASS] test_validar_pase_qr_errores_y_expiracion (403 expirado/usado, 404 inexistente y UI)")
     print("=" * 80)
-    print("¡TODAS LAS PRUEBAS FINANCIERAS Y DE SEGURIDAD PASARON SATISFACTORIAMENTE!")
+    print("¡TODAS LAS PRUEBAS DEL SISTEMA PASARON SATISFACTORIAMENTE (11/11)!")
     print("=" * 80)

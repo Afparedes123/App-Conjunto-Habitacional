@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Garita de Seguridad - Control de Acceso QR</title>
+  
+  <!-- Tailwind CSS CDN para estilos modernos de tablet -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- html5-qrcode CDN para escaneo robusto multiplataforma -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+  <style>
+    /* Estilos para el visor de cámara */
+    #reader {
+      width: 100% !important;
+      border: none !important;
+      border-radius: 1rem;
+      overflow: hidden;
+    }
+    #reader video {
+      border-radius: 1rem;
+      object-fit: cover;
+      width: 100% !important;
+    }
+    #reader __scan_region {
+      border-radius: 1rem;
+    }
+    .pulse-glow-green {
+      box-shadow: 0 0 50px rgba(34, 197, 94, 0.7), inset 0 0 30px rgba(34, 197, 94, 0.4);
+    }
+    .pulse-glow-red {
+      box-shadow: 0 0 50px rgba(239, 68, 68, 0.7), inset 0 0 30px rgba(239, 68, 68, 0.4);
+    }
+    @keyframes progress-countdown {
+      from { width: 100%; }
+      to { width: 0%; }
+    }
+    .animate-progress {
+      animation: progress-countdown 3s linear forwards;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans select-none antialiased">
+
+  <!-- =========================================================================
+       BARRA SUPERIOR DE ESTADO EN GARITA
+       ========================================================================= -->
+  <header class="bg-slate-900/90 backdrop-blur border-b border-slate-800 px-6 py-4 flex items-center justify-between sticky top-0 z-30">
+    <div class="flex items-center space-x-3">
+      <div class="w-3.5 h-3.5 rounded-full bg-emerald-500 animate-ping"></div>
+      <div>
+        <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+          <span>Garita Principal</span>
+          <span class="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-medium">EN LÍNEA</span>
+        </h1>
+        <p class="text-xs text-slate-400">Escáner de Acceso Peatonal y Vehicular</p>
+      </div>
+    </div>
+
+    <!-- Controles de sesión del Guardia -->
+    <div class="flex items-center space-x-3">
+      <div class="hidden sm:flex flex-col text-right">
+        <span id="guard-name-display" class="text-sm font-semibold text-slate-200">Guardia de Turno</span>
+        <span class="text-xs text-slate-400">Rol: Personal de Seguridad</span>
+      </div>
+      <button id="btn-token-config" class="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition flex items-center gap-1.5">
+        <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>
+        <span>Token Auth</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- =========================================================================
+       ÁREA PRINCIPAL DEL ESCÁNER Y CÁMARA
+       ========================================================================= -->
+  <main class="flex-1 max-w-4xl w-full mx-auto p-4 sm:p-6 flex flex-col justify-center items-center relative">
+    
+    <!-- Contenedor del visor de cámara -->
+    <div class="w-full bg-slate-900 border-2 border-slate-800 rounded-2xl p-4 shadow-2xl relative overflow-hidden flex flex-col items-center">
+      
+      <!-- Guía de encuadre visual -->
+      <div class="w-full relative flex flex-col items-center justify-center">
+        <div id="reader" class="w-full max-w-md mx-auto aspect-square bg-black rounded-xl"></div>
+        
+        <!-- Estado del escáner -->
+        <div id="scanner-status-tag" class="mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>Apunte el código QR de la visita hacia la cámara</span>
+        </div>
+      </div>
+
+      <!-- Selector de cámara y controles -->
+      <div class="mt-4 w-full flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400 border-t border-slate-800/80 pt-3">
+        <div class="flex items-center gap-2">
+          <label for="camera-select" class="font-medium">Cámara:</label>
+          <select id="camera-select" class="bg-slate-800 border border-slate-700 text-slate-200 rounded px-2.5 py-1 text-xs focus:ring-1 focus:ring-emerald-500 outline-none">
+            <option value="">Detectando cámaras...</option>
+          </select>
+        </div>
+        
+        <div class="flex items-center gap-2">
+          <button id="btn-restart-camera" class="hover:text-emerald-400 flex items-center gap-1 transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+            Reiniciar Cámara
+          </button>
+          <span>•</span>
+          <button id="btn-manual-entry" class="hover:text-blue-400 transition">Entrada Manual</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- =========================================================================
+         BANNER GIGANTE DE ALERTA (SUPERPUESTO EN PANTALLA COMPLETA)
+         ========================================================================= -->
+    <div id="result-overlay" class="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col items-center justify-center p-6 hidden transition-all duration-300">
+      
+      <!-- Contenedor central de la tarjeta de validación -->
+      <div id="result-card" class="max-w-lg w-full rounded-3xl p-8 sm:p-10 text-center flex flex-col items-center justify-center transform transition-transform duration-300 scale-95 border-4">
+        
+        <!-- Ícono gigante de estado -->
+        <div id="result-icon-container" class="w-24 h-24 rounded-full flex items-center justify-center mb-6 text-5xl">
+          <!-- Dinámico: Checkmark o Cruz -->
+        </div>
+
+        <!-- Título de Estado Primario -->
+        <h2 id="result-title" class="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3 uppercase">
+          ACCESO PERMITIDO
+        </h2>
+
+        <!-- Subtítulo / Detalles descriptivos del visitante -->
+        <div id="result-details" class="text-base sm:text-lg text-slate-200 space-y-2 mb-6">
+          <!-- Dinámico: [Nombre] va a [Unidad] -->
+        </div>
+
+        <!-- Barra de progreso de reanudación automática (3 segundos) -->
+        <div class="w-full bg-slate-800 rounded-full h-3 overflow-hidden mb-2">
+          <div id="countdown-bar" class="h-full bg-white rounded-full"></div>
+        </div>
+        <p class="text-xs text-slate-400 flex items-center gap-1.5">
+          <span>Reanudando escáner en</span>
+          <span id="countdown-seconds" class="font-bold text-white">3</span>
+          <span>segundos...</span>
+        </p>
+
+        <!-- Botón para continuar de inmediato sin esperar -->
+        <button id="btn-dismiss-overlay" class="mt-6 px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-sm font-semibold border border-slate-700 transition">
+          Escanear Siguiente
+        </button>
+      </div>
+    </div>
+
+    <!-- =========================================================================
+         MODAL: INGRESO MANUAL DE HASH O CÉDULA
+         ========================================================================= -->
+    <div id="manual-modal" class="fixed inset-0 z-40 bg-black/80 flex items-center justify-center p-4 hidden">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4">
+        <h3 class="text-lg font-bold text-white">Validación Manual de Pase</h3>
+        <p class="text-xs text-slate-400">En caso de código QR roto o ingreso con pistola de código de barras USB.</p>
+        
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Hash / Token del Pase QR:</label>
+          <input type="text" id="manual-hash-input" placeholder="ej. a1b2c3d4e5f6..." class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-emerald-500 outline-none font-mono">
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Cédula Visitante (Opcional):</label>
+          <input type="text" id="manual-cedula-input" placeholder="ej. 1718293847" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-emerald-500 outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Placa Vehicular (Opcional):</label>
+          <input type="text" id="manual-placa-input" placeholder="ej. PBA-4832" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-emerald-500 outline-none uppercase">
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button id="btn-cancel-manual" class="px-4 py-2 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition">Cancelar</button>
+          <button id="btn-submit-manual" class="px-4 py-2 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg transition">Validar Pase</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- =========================================================================
+         MODAL: CONFIGURACIÓN DE TOKEN JWT DE GUARDIA
+         ========================================================================= -->
+    <div id="token-modal" class="fixed inset-0 z-40 bg-black/80 flex items-center justify-center p-4 hidden">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4">
+        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+          <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>
+          <span>Sesión del Guardia</span>
+        </h3>
+        <p class="text-xs text-slate-400">Pegue aquí el token Bearer JWT del guardia o inicie sesión automáticamente.</p>
+        
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Token JWT Bearer:</label>
+          <textarea id="jwt-token-input" rows="4" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-xs text-emerald-400 font-mono focus:ring-2 focus:ring-emerald-500 outline-none"></textarea>
+        </div>
+
+        <div class="flex items-center justify-between pt-2">
+          <button id="btn-quick-login-guard" class="text-xs text-emerald-400 hover:underline">
+            Autologin con guardia@condominio.com
+          </button>
+          <div class="flex gap-2">
+            <button id="btn-close-token" class="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg">Cerrar</button>
+            <button id="btn-save-token" class="px-3 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg">Guardar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- =========================================================================
+       HISTORIAL RECIENTE DE ESCANEOS EN LA SESIÓN DE LA GARITA
+       ========================================================================= -->
+  <aside class="bg-slate-900 border-t border-slate-800 p-4 max-w-4xl w-full mx-auto">
+    <div class="flex items-center justify-between mb-2">
+      <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">Últimos Accesos Verificados</h4>
+      <span id="logs-count" class="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-400">0 registros</span>
+    </div>
+    <div id="recent-logs-list" class="space-y-2 max-h-36 overflow-y-auto pr-1 text-xs">
+      <p class="text-slate-500 italic text-center py-2">Sin accesos escaneados en esta sesión.</p>
+    </div>
+  </aside>
+
+  <!-- =========================================================================
+       LÓGICA JAVASCRIPT DEL ESCÁNER Y CONTROLADOR DE GARITA
+       ========================================================================= -->
+  <script>
+    /**
+     * Controlador Front-End para la Tablet de Seguridad de Garita.
+     * Gestiona:
+     * 1. Permisos de cámara (MediaDevices API / html5-qrcode).
+     * 2. Captura y debounce de códigos QR.
+     * 3. Petición autenticada fetch a /api/seguridad/validar-pase.
+     * 4. UI/UX inmersiva con feedback visual, auditivo y temporizador de 3 segundos.
+     */
+
+    // Variables de Estado
+    let html5QrCode = null;
+    let isProcessing = false;
+    let resumeTimeout = null;
+    let countdownInterval = null;
+    let authToken = localStorage.getItem("guard_auth_token") || "";
+
+    // Elementos del DOM
+    const readerElement = document.getElementById("reader");
+    const resultOverlay = document.getElementById("result-overlay");
+    const resultCard = document.getElementById("result-card");
+    const resultIconContainer = document.getElementById("result-icon-container");
+    const resultTitle = document.getElementById("result-title");
+    const resultDetails = document.getElementById("result-details");
+    const countdownBar = document.getElementById("countdown-bar");
+    const countdownSeconds = document.getElementById("countdown-seconds");
+    const btnDismissOverlay = document.getElementById("btn-dismiss-overlay");
+    const cameraSelect = document.getElementById("camera-select");
+    const btnRestartCamera = document.getElementById("btn-restart-camera");
+    const scannerStatusTag = document.getElementById("scanner-status-tag");
+    const recentLogsList = document.getElementById("recent-logs-list");
+    const logsCount = document.getElementById("logs-count");
+
+    // Modales
+    const tokenModal = document.getElementById("token-modal");
+    const manualModal = document.getElementById("manual-modal");
+    const jwtTokenInput = document.getElementById("jwt-token-input");
+
+    // =========================================================================
+    // SÍNTESIS DE AUDIO (FEEDBACK ACÚSTICO SIN DEPENDENCIAS EXTERNAS)
+    // =========================================================================
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function playSound(type) {
+      try {
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        if (type === "success") {
+          // Tono agradable de doble campana ascendente (Do - Sol)
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+          osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.12); // A5
+          gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.45);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.45);
+        } else {
+          // Tono grave de alerta / rechazo (Sawtooth)
+          osc.type = "sawtooth";
+          osc.frequency.setValueAtTime(160, audioCtx.currentTime);
+          osc.frequency.setValueAtTime(110, audioCtx.currentTime + 0.15);
+          gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.5);
+        }
+      } catch (e) {
+        console.warn("Audio feedback no disponible:", e);
+      }
+    }
+
+    // =========================================================================
+    // INICIALIZACIÓN DE CÁMARA Y GESTIÓN DE PERMISOS
+    // =========================================================================
+    /**
+     * NOTAS SOBRE PERMISOS DE CÁMARA EN EL NAVEGADOR:
+     * 1. Origen Seguro (HTTPS): La API `navigator.mediaDevices.getUserMedia` exige estrictamente HTTPS
+     *    o `http://localhost` / `http://127.0.0.1`. En despliegues en tablets físicas sobre red LAN local,
+     *    se debe configurar SSL/TLS o exponer vía proxy reverso (Nginx, Caddy).
+     * 2. Selección de Cámara Trasera: En tablets y celulares, `facingMode: "environment"` selecciona
+     *    la cámara posterior optimizada para escanear documentos y QR.
+     */
+    async function initializeScanner() {
+      try {
+        html5QrCode = new Html5Qrcode("reader");
+
+        // Enumerar cámaras disponibles
+        const devices = await Html5Qrcode.getCameras();
+        cameraSelect.innerHTML = "";
+
+        if (devices && devices.length > 0) {
+          devices.forEach((device, index) => {
+            const option = document.createElement("option");
+            option.value = device.id;
+            option.text = device.label || `Cámara ${index + 1}`;
+            // Preferir cámara trasera por defecto
+            if (device.label.toLowerCase().includes("back") || device.label.toLowerCase().includes("trasera") || device.label.toLowerCase().includes("environment")) {
+              option.selected = true;
+            }
+            cameraSelect.appendChild(option);
+          });
+
+          const selectedCameraId = cameraSelect.value || devices[0].id;
+          await startScanning(selectedCameraId);
+        } else {
+          scannerStatusTag.innerHTML = `⚠️ No se detectaron cámaras en el dispositivo.`;
+        }
+      } catch (err) {
+        console.error("Error al inicializar cámara:", err);
+        scannerStatusTag.innerHTML = `❌ Error de cámara: Permiso denegado o HTTPS requerido.`;
+      }
+    }
+
+    async function startScanning(cameraId) {
+      if (!html5QrCode) return;
+
+      const config = {
+        fps: 15,
+        qrbox: { width: 250, height: 250 },
+        aspectRatio: 1.0,
+      };
+
+      try {
+        await html5QrCode.start(
+          cameraId,
+          config,
+          onScanSuccess,
+          onScanError
+        );
+        scannerStatusTag.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span><span>Cámara activa: Escaneando códigos QR...</span>`;
+      } catch (err) {
+        console.error("Fallo al arrancar escáner:", err);
+        scannerStatusTag.innerHTML = `❌ No se pudo activar la cámara seleccionada.`;
+      }
+    }
+
+    // =========================================================================
+    // MANEJADORES DE LECTURA DE QR
+    // =========================================================================
+    async function onScanSuccess(decodedText) {
+      if (isProcessing) return; // Debounce activo
+      isProcessing = true;
+
+      // 1. Pausar cámara inmediatamente tras detectar código
+      try {
+        if (html5QrCode && html5QrCode.isScanning) {
+          await html5QrCode.pause();
+        }
+      } catch (e) {
+        console.warn("No se pudo pausar el escáner:", e);
+      }
+
+      // 2. Validar con la API Backend
+      await validatePassWithAPI(decodedText);
+    }
+
+    function onScanError(errorMessage) {
+      // Ignorar ruidos continuos de frames vacíos sin QR
+    }
+
+    // =========================================================================
+    // PETICIÓN HTTP AL ENDPOINT /api/seguridad/validar-pase
+    // =========================================================================
+    async function validatePassWithAPI(qrHash, cedula = null, placa = null) {
+      if (!authToken) {
+        showResultAlert(false, "ERROR DE AUTENTICACIÓN", "Token de guardia ausente. Configure el token primero.", 401);
+        return;
+      }
+
+      scannerStatusTag.innerHTML = `⏳ Verificando pase con el servidor...`;
+
+      try {
+        const response = await fetch("/api/seguridad/validar-pase", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${authToken.trim()}`,
+          },
+          body: JSON.stringify({
+            hash_qr: qrHash,
+            cedula_visitante: cedula,
+            placa_vehiculo: placa,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.acceso_permitido) {
+          // 🟢 ACCESO PERMITIDO
+          playSound("success");
+          showResultAlert(
+            true,
+            "ACCESO PERMITIDO",
+            `<p class="text-xl font-bold text-white">${data.nombre_visitante}</p>
+             <p class="text-lg text-emerald-300 font-semibold">Destino: Unidad ${data.unidad_destino}</p>
+             <p class="text-xs text-slate-300">Tipo: <span class="uppercase font-medium">${data.tipo_visita}</span> • Guardia: ${data.guardia_nombre}</p>`,
+            200,
+            data
+          );
+          addSessionLog(true, data.nombre_visitante, data.unidad_destino, data.tipo_visita);
+        } else {
+          // 🔴 ACCESO DENEGADO (403, 404, etc.)
+          playSound("error");
+          const motivo = data.detail || "Código QR no válido o expirado";
+          showResultAlert(
+            false,
+            "ACCESO DENEGADO",
+            `<p class="text-lg font-semibold text-rose-300">${motivo}</p>
+             <p class="text-xs text-slate-400 mt-1">Hash leído: <span class="font-mono text-slate-300">${qrHash.slice(0, 16)}...</span></p>`,
+            response.status
+          );
+          addSessionLog(false, "Desconocido / Inválido", "N/A", motivo);
+        }
+      } catch (networkError) {
+        playSound("error");
+        showResultAlert(
+          false,
+          "ERROR DE CONEXIÓN",
+          `No se pudo contactar con la API del condominio: ${networkError.message}`,
+          500
+        );
+      }
+    }
+
+    // =========================================================================
+    // UI/UX: ALERTA GIGANTE Y TEMPORIZADOR DE 3 SEGUNDOS
+    // =========================================================================
+    function showResultAlert(isSuccess, title, htmlDetails, statusCode, payload = null) {
+      // Configurar estilos según resultado
+      if (isSuccess) {
+        resultCard.className = "max-w-lg w-full rounded-3xl p-8 sm:p-10 text-center flex flex-col items-center justify-center border-4 bg-emerald-950/90 border-emerald-500 pulse-glow-green text-emerald-100 shadow-2xl";
+        resultIconContainer.className = "w-24 h-24 rounded-full flex items-center justify-center mb-6 text-5xl bg-emerald-500/20 text-emerald-400 border-2 border-emerald-400";
+        resultIconContainer.innerHTML = "✓";
+        resultTitle.className = "text-3xl sm:text-4xl font-extrabold tracking-tight mb-3 text-emerald-400 uppercase";
+        countdownBar.className = "h-full bg-emerald-400 rounded-full animate-progress";
+      } else {
+        resultCard.className = "max-w-lg w-full rounded-3xl p-8 sm:p-10 text-center flex flex-col items-center justify-center border-4 bg-rose-950/90 border-rose-500 pulse-glow-red text-rose-100 shadow-2xl";
+        resultIconContainer.className = "w-24 h-24 rounded-full flex items-center justify-center mb-6 text-5xl bg-rose-500/20 text-rose-400 border-2 border-rose-400";
+        resultIconContainer.innerHTML = "✕";
+        resultTitle.className = "text-3xl sm:text-4xl font-extrabold tracking-tight mb-3 text-rose-400 uppercase";
+        countdownBar.className = "h-full bg-rose-400 rounded-full animate-progress";
+      }
+
+      resultTitle.textContent = title;
+      resultDetails.innerHTML = htmlDetails;
+
+      // Mostrar overlay
+      resultOverlay.classList.remove("hidden");
+
+      // Iniciar cuenta regresiva visual de 3 segundos
+      let remaining = 3;
+      countdownSeconds.textContent = remaining;
+
+      if (countdownInterval) clearInterval(countdownInterval);
+      countdownInterval = setInterval(() => {
+        remaining -= 1;
+        if (remaining >= 0) {
+          countdownSeconds.textContent = remaining;
+        }
+      }, 1000);
+
+      // Reinicio automático en 3 segundos
+      if (resumeTimeout) clearTimeout(resumeTimeout);
+      resumeTimeout = setTimeout(() => {
+        dismissOverlayAndResume();
+      }, 3000);
+    }
+
+    function dismissOverlayAndResume() {
+      if (resumeTimeout) clearTimeout(resumeTimeout);
+      if (countdownInterval) clearInterval(countdownInterval);
+
+      resultOverlay.classList.add("hidden");
+      isProcessing = false;
+
+      // Reanudar cámara
+      try {
+        if (html5QrCode) {
+          html5QrCode.resume();
+        }
+      } catch (e) {
+        console.warn("Error al reanudar cámara:", e);
+      }
+
+      scannerStatusTag.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span><span>Listo: Escaneando siguiente código QR...</span>`;
+    }
+
+    btnDismissOverlay.addEventListener("click", dismissOverlayAndResume);
+
+    // =========================================================================
+    // BITÁCORA LOCAL DE SESIÓN EN PANTALLA
+    // =========================================================================
+    let localLogs = [];
+    function addSessionLog(isAllowed, name, unit, detail) {
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      localLogs.unshift({ isAllowed, name, unit, detail, timeStr });
+      if (localLogs.length > 20) localLogs.pop();
+
+      logsCount.textContent = `${localLogs.length} registros`;
+
+      recentLogsList.innerHTML = localLogs.map(log => `
+        <div class="flex items-center justify-between p-2 rounded-lg ${log.isAllowed ? 'bg-emerald-950/40 border border-emerald-900/50' : 'bg-rose-950/40 border border-rose-900/50'}">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full ${log.isAllowed ? 'bg-emerald-400' : 'bg-rose-500'}"></span>
+            <div>
+              <p class="font-semibold ${log.isAllowed ? 'text-emerald-300' : 'text-rose-300'}">${log.name}</p>
+              <p class="text-[10px] text-slate-400">${log.detail}</p>
+            </div>
+          </div>
+          <div class="text-right">
+            <span class="font-medium text-slate-300">${log.unit}</span>
+            <span class="block text-[10px] text-slate-500">${log.timeStr}</span>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    // =========================================================================
+    // MODALES Y ENTRADA MANUAL
+    // =========================================================================
+    document.getElementById("btn-manual-entry").addEventListener("click", () => {
+      manualModal.classList.remove("hidden");
+    });
+    document.getElementById("btn-cancel-manual").addEventListener("click", () => {
+      manualModal.classList.add("hidden");
+    });
+    document.getElementById("btn-submit-manual").addEventListener("click", async () => {
+      const hash = document.getElementById("manual-hash-input").value.trim();
+      const cedula = document.getElementById("manual-cedula-input").value.trim();
+      const placa = document.getElementById("manual-placa-input").value.trim();
+      if (!hash) {
+        alert("Por favor ingrese el hash del pase QR");
+        return;
+      }
+      manualModal.classList.add("hidden");
+      await validatePassWithAPI(hash, cedula, placa);
+    });
+
+    // Gestión del Token JWT
+    document.getElementById("btn-token-config").addEventListener("click", () => {
+      jwtTokenInput.value = authToken;
+      tokenModal.classList.remove("hidden");
+    });
+    document.getElementById("btn-close-token").addEventListener("click", () => {
+      tokenModal.classList.add("hidden");
+    });
+    document.getElementById("btn-save-token").addEventListener("click", () => {
+      authToken = jwtTokenInput.value.trim();
+      localStorage.setItem("guard_auth_token", authToken);
+      tokenModal.classList.add("hidden");
+      alert("Token guardado con éxito.");
+    });
+
+    // Autologin de prueba rápido para desarrollo
+    document.getElementById("btn-quick-login-guard").addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: "guardia@condominio.com", password: "guardia123" }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          authToken = data.access_token;
+          localStorage.setItem("guard_auth_token", authToken);
+          jwtTokenInput.value = authToken;
+          document.getElementById("guard-name-display").textContent = data.nombre_completo;
+          alert("¡Sesión iniciada con éxito como Guardia!");
+          tokenModal.classList.add("hidden");
+        } else {
+          alert("No se pudo iniciar sesión automática. Verifique credenciales.");
+        }
+      } catch (e) {
+        alert("Error al conectar con la API: " + e.message);
+      }
+    });
+
+    // Selector de cámara
+    cameraSelect.addEventListener("change", async () => {
+      if (html5QrCode && html5QrCode.isScanning) {
+        await html5QrCode.stop();
+      }
+      await startScanning(cameraSelect.value);
+    });
+
+    btnRestartCamera.addEventListener("click", async () => {
+      if (html5QrCode && html5QrCode.isScanning) {
+        await html5QrCode.stop();
+      }
+      await initializeScanner();
+    });
+
+    // Arrancar al cargar la página
+    window.addEventListener("DOMContentLoaded", () => {
+      initializeScanner();
+      // Si ya hay token, obtener perfil
+      if (authToken) {
+        fetch("/api/perfil", { headers: { "Authorization": `Bearer ${authToken}` } })
+          .then(r => r.json())
+          .then(u => {
+            if (u.nombre_completo) document.getElementById("guard-name-display").textContent = u.nombre_completo;
+          }).catch(() => {});
+      }
+    });
+  </script>
+</body>
+</html>

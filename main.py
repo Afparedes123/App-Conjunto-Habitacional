@@ -17,6 +17,7 @@ from models import Base, Unit, User, UserRole
 from routers.auth import router as auth_router
 from routers.financial import router as financial_router
 from routers.payments import router as payments_router
+from routers.security import router as security_router
 from routers.units import router as units_router
 from scheduler import shutdown_scheduler, start_scheduler
 from security import hash_password
@@ -125,6 +126,7 @@ app.include_router(auth_router)
 app.include_router(units_router)
 app.include_router(payments_router)
 app.include_router(financial_router)
+app.include_router(security_router)
 
 
 # ==============================================================================

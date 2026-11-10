@@ -16,7 +16,9 @@ from models import (
     ObligationType,
     PaymentMethod,
     PaymentValidationStatus,
+    QRPassStatus,
     UserRole,
+    VisitType,
 )
 
 
@@ -169,3 +171,51 @@ class MultasApplicationResponse(BaseModel):
     deudas_vencidas_procesadas: int
     total_multas_generadas: int
     total_multas_monto: Decimal
+
+
+# ==============================================================================
+# ESQUEMAS DEL MÓDULO DE SEGURIDAD (PASES QR Y CONTROL DE ACCESO)
+# ==============================================================================
+
+class QRPassCreateRequest(BaseModel):
+    """Datos para emitir un nuevo pase de visita con código QR."""
+    nombre_visitante: str = Field(..., min_length=2, max_length=150, description="Nombre completo del visitante")
+    tipo_visita: VisitType = Field(..., description="Clasificación: FAMILIAR, DELIVERY, UBER, CONTRATISTA")
+    fecha_hora_fin: datetime = Field(..., description="Fecha y hora de expiración del pase")
+    fecha_hora_inicio: Optional[datetime] = Field(None, description="Fecha y hora de inicio de vigencia (opcional)")
+    unit_id: Optional[uuid.UUID] = Field(None, description="ID de la unidad (opcional si el residente tiene una asignada)")
+
+
+class QRPassResponse(BaseModel):
+    """Detalle del pase QR generado con imagen en Base64."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    unit_id: uuid.UUID
+    unit_identificador: str
+    nombre_visitante: str
+    tipo_visita: VisitType
+    hash_qr: str
+    fecha_hora_inicio: datetime
+    fecha_hora_fin: datetime
+    estado: QRPassStatus
+    qr_image_base64: str = Field(..., description="Imagen del código QR en formato data:image/png;base64,...")
+
+
+class QRPassValidateRequest(BaseModel):
+    """Datos enviados por el escáner del guardia al leer un código QR."""
+    hash_qr: str = Field(..., min_length=1, max_length=64, description="Hash leído del código QR")
+    cedula_visitante: Optional[str] = Field(None, max_length=30, description="Cédula verificada (opcional en lectura rápida)")
+    placa_vehiculo: Optional[str] = Field(None, max_length=20, description="Placa del vehículo (opcional)")
+
+
+class QRPassValidateResponse(BaseModel):
+    """Respuesta de autorización del acceso tras escanear el QR."""
+    mensaje: str = "ACCESO PERMITIDO"
+    acceso_permitido: bool = True
+    nombre_visitante: str
+    unidad_destino: str
+    tipo_visita: VisitType
+    fecha_hora_ingreso: datetime
+    guardia_nombre: str
+    access_log_id: uuid.UUID
