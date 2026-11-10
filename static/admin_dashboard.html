@@ -121,7 +121,7 @@
     <!-- =========================================================================
          2. ÁREA DE CONTENIDO PRINCIPAL Y HEADER SUPERIOR
          ========================================================================= -->
-    <div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+    <div class="flex-1 flex flex-col min-w-0 overflow-y-auto" id="admin-main-scroll">
 
       <!-- Header Superior -->
       <header class="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0 sticky top-0 z-20 shadow-xs">
@@ -185,7 +185,7 @@
         <!-- =========================================================================
              A) PANEL DE KPIS (Tarjetas Resumen)
              ========================================================================= -->
-        <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <section id="section-kpis" class="grid grid-cols-1 md:grid-cols-3 gap-6">
 
           <!-- KPI 1: Total Recaudado este Mes -->
           <div class="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-sm hover:shadow-md transition">
@@ -263,7 +263,7 @@
         <!-- =========================================================================
              B) TABLA DINÁMICA DE UNIDADES HABITACIONALES
              ========================================================================= -->
-        <section class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <section id="section-unidades" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           
           <!-- Barra de Herramientas de la Tabla: Filtros y Búsqueda -->
           <div class="p-5 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/50">
@@ -366,6 +366,38 @@
       </div>
     </div>
   </div>
+
+  <!-- =========================================================================
+       MODAL DE TICKETS DE SOPORTE
+       ========================================================================= -->
+  <div id="tickets-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200 p-6 space-y-5 animate-fade">
+      
+      <div class="flex items-start justify-between border-b border-slate-100 pb-3">
+        <div>
+          <span class="text-xs font-bold text-rose-600 uppercase tracking-wide">Mantenimiento y Reparaciones</span>
+          <h3 class="text-lg font-black text-slate-900">Tickets de Soporte Activos (5)</h3>
+        </div>
+        <button id="btn-close-tickets-modal" class="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition">
+          ✕
+        </button>
+      </div>
+
+      <div class="space-y-2.5 max-h-80 overflow-y-auto pr-1" id="tickets-list-container">
+        <!-- Rellenado por JS -->
+      </div>
+
+      <div class="flex items-center justify-between pt-2 border-t border-slate-100">
+        <span class="text-xs text-slate-400">Tiempo prom. de respuesta: ~3.2 hrs</span>
+        <button id="btn-nuevo-ticket" class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition text-xs flex items-center gap-1.5">
+          <span>➕ Crear Ticket</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contenedor flotante para notificaciones Toast -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
   <!-- =========================================================================
        JAVASCRIPT: MOCK DATA Y CONTROL DE ESTADOS
@@ -593,7 +625,167 @@
       renderUnitsTable();
     });
 
-    // 5. ACCIONES DE EJEMPLO
+    // 5. SISTEMA DE TOASTS FLOTANTES
+    function showToast(message, icon = "ℹ️") {
+      const container = document.getElementById("toast-container");
+      if (!container) return;
+      const toast = document.createElement("div");
+      toast.className = "flex items-center gap-2.5 px-4 py-3 bg-slate-900 text-white text-xs font-semibold rounded-2xl shadow-2xl border border-slate-700/80 animate-fade transition-all duration-300 pointer-events-auto";
+      toast.innerHTML = `<span class="text-base">${icon}</span><span>${message}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = "0";
+        toast.style.transform = "translateY(10px)";
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    // 6. TICKETS DE SOPORTE: DATOS Y MODAL
+    const mockTickets = [
+      { id: "T-105", titulo: "Fuga de agua en tubería principal Torre B", area: "Plomería", prioridad: "URGENTE", tiempo: "Hace 40 min", unidad: "Torre B - 204" },
+      { id: "T-104", titulo: "Fallo sensor puerta ascensor principal", area: "Ascensores", prioridad: "URGENTE", tiempo: "Hace 2 hrs", unidad: "Torre A" },
+      { id: "T-103", titulo: "Lámpara fundida en parqueadero subterráneo #14", area: "Electricidad", prioridad: "NORMAL", tiempo: "Ayer", unidad: "Subsuelo 1" },
+      { id: "T-102", titulo: "Mantenimiento poda jardines comunales", area: "Jardinería", prioridad: "NORMAL", tiempo: "Hace 2 días", unidad: "Área Verde" },
+      { id: "T-101", titulo: "Ajuste de cerradura magnética garita vehicular", area: "Seguridad", prioridad: "NORMAL", tiempo: "Hace 3 días", unidad: "Garita" }
+    ];
+
+    const ticketsModal = document.getElementById("tickets-modal");
+    const ticketsList = document.getElementById("tickets-list-container");
+    const btnCloseTickets = document.getElementById("btn-close-tickets-modal");
+    const btnNuevoTicket = document.getElementById("btn-nuevo-ticket");
+
+    function abrirModalTickets() {
+      ticketsList.innerHTML = "";
+      mockTickets.forEach(t => {
+        const item = document.createElement("div");
+        item.className = "p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between text-xs hover:bg-slate-100 transition";
+        const badgeColor = t.prioridad === "URGENTE" ? "bg-rose-100 text-rose-700 border-rose-200" : "bg-slate-200 text-slate-700 border-slate-300";
+        item.innerHTML = `
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-slate-900">${t.titulo}</span>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border ${badgeColor}">${t.prioridad}</span>
+            </div>
+            <p class="text-slate-500 text-[11px] mt-0.5">${t.area} • ${t.unidad} • ${t.tiempo}</p>
+          </div>
+          <button class="px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 hover:bg-indigo-50 hover:text-indigo-600 text-slate-700 font-semibold text-[11px] transition shadow-2xs btn-atender-ticket" data-id="${t.id}">
+            Atender
+          </button>
+        `;
+        ticketsList.appendChild(item);
+      });
+
+      document.querySelectorAll(".btn-atender-ticket").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const tid = btn.getAttribute("data-id");
+          alert(`🛠️ Ticket [${tid}] asignado al equipo técnico de mantenimiento.`);
+        });
+      });
+
+      ticketsModal.classList.remove("hidden");
+    }
+
+    btnCloseTickets.addEventListener("click", () => ticketsModal.classList.add("hidden"));
+    ticketsModal.addEventListener("click", (e) => {
+      if (e.target === ticketsModal) ticketsModal.classList.add("hidden");
+    });
+    btnNuevoTicket.addEventListener("click", () => {
+      alert("📝 Abriendo formulario para registrar un nuevo ticket de mantenimiento.");
+    });
+
+    // 7. MANEJO DE NAVEGACIÓN EN LA BARRA LATERAL (SIDEBAR MÓDULOS)
+    const navButtons = document.querySelectorAll("#admin-nav .nav-item");
+    const adminScroll = document.getElementById("admin-main-scroll");
+
+    function setNavActive(navKey) {
+      navButtons.forEach(btn => {
+        if (btn.getAttribute("data-nav") === navKey) {
+          btn.className = "nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-white bg-indigo-600 shadow-sm transition";
+        } else {
+          btn.className = "nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800/70 transition";
+        }
+      });
+    }
+
+    navButtons.forEach(btn => {
+      btn.addEventListener("click", () => {
+        const navKey = btn.getAttribute("data-nav");
+        handleNavigation(navKey);
+      });
+    });
+
+    function handleNavigation(navKey) {
+      setNavActive(navKey);
+
+      switch (navKey) {
+        case "inicio":
+          adminScroll.scrollTo({ top: 0, behavior: "smooth" });
+          currentFilter = "all";
+          filterButtons.forEach(b => {
+            b.className = b.getAttribute("data-filter") === "all"
+              ? "filter-btn px-3 py-1.5 rounded-lg bg-white text-slate-800 font-bold shadow-xs transition"
+              : "filter-btn px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition";
+          });
+          renderUnitsTable();
+          showToast("Inicio: Panel General de Control y KPIs", "📊");
+          break;
+
+        case "finanzas":
+          currentFilter = "EN_MORA";
+          filterButtons.forEach(b => {
+            b.className = b.getAttribute("data-filter") === "EN_MORA"
+              ? "filter-btn px-3 py-1.5 rounded-lg bg-white text-slate-800 font-bold shadow-xs transition"
+              : "filter-btn px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition";
+          });
+          renderUnitsTable();
+          const targetUnidades = document.getElementById("section-unidades");
+          if (targetUnidades) targetUnidades.scrollIntoView({ behavior: "smooth" });
+          showToast("Finanzas: Filtrando 4 unidades con pagos en mora", "💰");
+          break;
+
+        case "unidades":
+          currentFilter = "all";
+          filterButtons.forEach(b => {
+            b.className = b.getAttribute("data-filter") === "all"
+              ? "filter-btn px-3 py-1.5 rounded-lg bg-white text-slate-800 font-bold shadow-xs transition"
+              : "filter-btn px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition";
+          });
+          renderUnitsTable();
+          const secUnidades = document.getElementById("section-unidades");
+          if (secUnidades) secUnidades.scrollIntoView({ behavior: "smooth" });
+          tableFilterInput.focus();
+          showToast("Directorio Completo de Unidades Habitacionales", "🏠");
+          break;
+
+        case "seguridad":
+          showToast("Abriendo Terminal de Garita y Escáner QR...", "🛡️");
+          setTimeout(() => {
+            if (window.parent && window.parent !== window) {
+              window.parent.postMessage({ action: "switchView", view: "guardia" }, "*");
+            } else {
+              window.location.href = "/guardia";
+            }
+          }, 350);
+          break;
+
+        case "tickets":
+          abrirModalTickets();
+          break;
+
+        case "comunitario":
+          showToast("Abriendo Módulo de Áreas Comunales y Reservas...", "🏊");
+          setTimeout(() => {
+            if (window.parent && window.parent !== window) {
+              window.parent.postMessage({ action: "switchView", view: "residente" }, "*");
+            } else {
+              window.location.href = "/residente";
+            }
+          }, 350);
+          break;
+      }
+    }
+
+    // 8. ACCIONES DE EJEMPLO ADICIONALES
     document.getElementById("btn-cron-alicuotas").addEventListener("click", () => {
       alert("⚡ [CRON Simulado] Se ha ejecutado la generación masiva de alícuotas para el periodo Noviembre 2026. 58 obligaciones generadas con éxito.");
     });
@@ -606,6 +798,14 @@
     document.getElementById("btn-action-estado-cuenta").addEventListener("click", () => {
       alert("📜 Abriendo estado de cuenta consolidado con historial de obligaciones y recibos.");
       modal.classList.add("hidden");
+    });
+
+    document.getElementById("btn-exportar").addEventListener("click", () => {
+      alert("📥 [Descarga iniciada] Exportando reporte general de copropiedad en formato Excel/PDF.");
+    });
+
+    document.getElementById("btn-nueva-unidad").addEventListener("click", () => {
+      alert("➕ Abriendo asistente de registro para nueva unidad habitacional o departamento.");
     });
 
     // Inicializar render

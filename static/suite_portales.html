@@ -131,6 +131,13 @@
     document.getElementById("tab-admin").addEventListener("click", () => switchView("admin"));
     document.getElementById("tab-residente").addEventListener("click", () => switchView("residente"));
     document.getElementById("tab-guardia").addEventListener("click", () => switchView("guardia"));
+
+    // Escuchar mensajes desde los paneles internos para cambiar de pestaña automáticamente
+    window.addEventListener("message", (event) => {
+      if (event.data && event.data.action === "switchView") {
+        switchView(event.data.view);
+      }
+    });
   </script>
 </body>
 </html>
