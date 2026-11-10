@@ -7,10 +7,13 @@ from __future__ import annotations
 
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import AsyncGenerator
 
 from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 
 from database import SessionLocal, engine
 from models import Base, CommonArea, Unit, User, UserRole
@@ -160,6 +163,43 @@ app.include_router(financial_router)
 app.include_router(security_router)
 app.include_router(reservations_router)
 
+# Montaje de archivos estáticos
+STATIC_DIR = Path(__file__).parent / "static"
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
+# ==============================================================================
+# RUTAS DE INTERFACES WEB (3 PANELES)
+# ==============================================================================
+
+@app.get("/admin", response_class=HTMLResponse, tags=["Interfaces Web"])
+def get_admin_dashboard_view():
+    """Sirve el Dashboard de Escritorio para el Administrador."""
+    file_path = STATIC_DIR / "admin_dashboard.html"
+    return HTMLResponse(content=file_path.read_text(encoding="utf-8"))
+
+
+@app.get("/residente", response_class=HTMLResponse, tags=["Interfaces Web"])
+def get_resident_app_view():
+    """Sirve la Aplicación Mobile-First para el Residente."""
+    file_path = STATIC_DIR / "resident_app.html"
+    return HTMLResponse(content=file_path.read_text(encoding="utf-8"))
+
+
+@app.get("/guardia", response_class=HTMLResponse, tags=["Interfaces Web"])
+def get_guard_tablet_view():
+    """Sirve la Terminal Tablet en Modo Oscuro para la Garita de Seguridad."""
+    file_path = STATIC_DIR / "guard_tablet.html"
+    return HTMLResponse(content=file_path.read_text(encoding="utf-8"))
+
+
+@app.get("/portales", response_class=HTMLResponse, tags=["Interfaces Web"])
+def get_suite_portales_view():
+    """Sirve la Suite Unificada con selector de roles y simulador de dispositivos."""
+    file_path = STATIC_DIR / "suite_portales.html"
+    return HTMLResponse(content=file_path.read_text(encoding="utf-8"))
+
 
 # ==============================================================================
 # RUTAS DE CHEQUEO DE SALUD Y RAÍZ
@@ -172,6 +212,12 @@ def root():
         "version": "1.0.0",
         "estado": "operativo",
         "docs": "/docs",
+        "portales": "/portales",
+        "vistas": {
+            "admin": "/admin",
+            "residente": "/residente",
+            "guardia": "/guardia",
+        },
     }
 
 

@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-50">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CondoAdmin SaaS - Panel del Administrador</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade {
+      animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    /* Estilización de scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
+</head>
+<body class="h-full text-slate-800 antialiased flex flex-col font-sans">
+
+  <div class="flex h-screen overflow-hidden bg-slate-100">
+
+    <!-- =========================================================================
+         1. SIDEBAR DE NAVEGACIÓN LATERAL (Desktop)
+         ========================================================================= -->
+    <aside class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col justify-between shrink-0 select-none">
+      <div>
+        <!-- Logo y Nombre del SaaS -->
+        <div class="h-16 flex items-center px-6 gap-3 border-b border-slate-800/80 bg-slate-950/40">
+          <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-indigo-500/30">
+            🏢
+          </div>
+          <div>
+            <h1 class="text-sm font-bold text-white tracking-wide">CondoAdmin <span class="text-indigo-400">PRO</span></h1>
+            <p class="text-[11px] text-slate-400 font-medium truncate max-w-[140px]">Condominio Mirador</p>
+          </div>
+        </div>
+
+        <!-- Menú de Navegación -->
+        <nav class="p-4 space-y-1.5" id="admin-nav">
+          <p class="px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Módulos</p>
+          
+          <button data-nav="inicio" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-white bg-indigo-600 shadow-sm transition">
+            <span class="text-base">📊</span>
+            <span>Inicio / Panel</span>
+          </button>
+          
+          <button data-nav="finanzas" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800/70 transition">
+            <span class="text-base">💰</span>
+            <span>Finanzas y Pagos</span>
+            <span class="ml-auto text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold">4 mora</span>
+          </button>
+
+          <button data-nav="unidades" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800/70 transition">
+            <span class="text-base">🏠</span>
+            <span>Unidades Habitacionales</span>
+            <span class="ml-auto text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">58</span>
+          </button>
+
+          <button data-nav="seguridad" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800/70 transition">
+            <span class="text-base">🛡️</span>
+            <span>Seguridad y Garita</span>
+          </button>
+
+          <button data-nav="tickets" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800/70 transition">
+            <span class="text-base">🎫</span>
+            <span>Tickets de Soporte</span>
+            <span class="ml-auto text-[11px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-bold">5</span>
+          </button>
+
+          <button data-nav="comunitario" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800/70 transition">
+            <span class="text-base">🏊</span>
+            <span>Áreas y Reservas</span>
+          </button>
+        </nav>
+      </div>
+
+      <!-- Perfil del Administrador en el Footer de la Sidebar -->
+      <div class="p-4 border-t border-slate-800/80 bg-slate-950/30">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white font-bold text-sm shadow">
+            CM
+          </div>
+          <div class="overflow-hidden">
+            <p class="text-xs font-bold text-white truncate">Carlos Méndez</p>
+            <p class="text-[11px] text-emerald-400 flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>Administrador General</span>
+            </p>
+          </div>
+          <button title="Cerrar sesión" class="ml-auto p-1.5 text-slate-400 hover:text-rose-400 transition rounded-lg hover:bg-slate-800">
+            🚪
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- =========================================================================
+         2. ÁREA DE CONTENIDO PRINCIPAL Y HEADER SUPERIOR
+         ========================================================================= -->
+    <div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+
+      <!-- Header Superior -->
+      <header class="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0 sticky top-0 z-20 shadow-xs">
+        <!-- Barra de Búsqueda Global -->
+        <div class="flex items-center gap-3 w-96">
+          <div class="relative w-full">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-sm">🔍</span>
+            <input 
+              type="text" 
+              id="global-search"
+              placeholder="Buscar unidad, residente, o placa..."
+              class="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+            >
+          </div>
+        </div>
+
+        <!-- Controles Superiores: Periodo y Notificaciones -->
+        <div class="flex items-center gap-3">
+          <!-- Selector de Periodo de Facturación -->
+          <div class="hidden md:flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 text-xs text-slate-600">
+            <span>📅 Periodo:</span>
+            <select id="select-periodo" class="bg-transparent font-bold text-slate-800 outline-none cursor-pointer">
+              <option value="2026-11">Noviembre 2026</option>
+              <option value="2026-10">Octubre 2026</option>
+              <option value="2026-09">Septiembre 2026</option>
+            </select>
+          </div>
+
+          <!-- Campana de Notificaciones -->
+          <button class="relative p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition">
+            <span class="text-lg">🔔</span>
+            <span class="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-white"></span>
+          </button>
+
+          <!-- Botón de Generar Alícuotas Masivas (CRON manual) -->
+          <button id="btn-cron-alicuotas" class="flex items-center gap-2 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-sm shadow-indigo-200">
+            <span>⚡ Emitir Alícuotas</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Contenido del Dashboard -->
+      <main class="p-6 md:p-8 space-y-8 flex-1">
+
+        <!-- Bienvenida y Resumen Ejecutivo -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h2 class="text-2xl font-black text-slate-900 tracking-tight">Panel General de Copropiedad</h2>
+            <p class="text-xs md:text-sm text-slate-500 mt-0.5">Gestión operativa, cobranza y seguridad en tiempo real para 58 unidades.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="btn-exportar" class="px-3 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5 transition">
+              <span>📥 Exportar Reporte</span>
+            </button>
+            <button id="btn-nueva-unidad" class="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition">
+              <span>➕ Nueva Unidad</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- =========================================================================
+             A) PANEL DE KPIS (Tarjetas Resumen)
+             ========================================================================= -->
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+          <!-- KPI 1: Total Recaudado este Mes -->
+          <div class="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-sm hover:shadow-md transition">
+            <div class="flex items-start justify-between">
+              <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Recaudado este Mes</p>
+                <h3 class="text-2xl lg:text-3xl font-black text-slate-900 mt-2">$ 18,450.00</h3>
+              </div>
+              <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center text-xl">
+                💰
+              </div>
+            </div>
+            <!-- Indicador y Barra de Progreso -->
+            <div class="mt-4 pt-4 border-t border-slate-100 space-y-2">
+              <div class="flex items-center justify-between text-xs">
+                <span class="text-emerald-600 font-bold flex items-center gap-1">
+                  <span>↗ +12.4%</span>
+                  <span class="text-slate-400 font-normal">vs mes anterior</span>
+                </span>
+                <span class="text-slate-500 font-medium">Meta: $20,000</span>
+              </div>
+              <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                <div class="bg-emerald-500 h-2 rounded-full transition-all duration-1000" style="width: 92.25%"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- KPI 2: Índice de Morosidad (%) -->
+          <div class="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-sm hover:shadow-md transition">
+            <div class="flex items-start justify-between">
+              <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Índice de Morosidad</p>
+                <h3 class="text-2xl lg:text-3xl font-black text-slate-900 mt-2">6.8 %</h3>
+              </div>
+              <div class="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center text-xl">
+                ⚠️
+              </div>
+            </div>
+            <!-- Detalle de Deuda y Estado Semáforo -->
+            <div class="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
+              <div class="flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+                <span class="font-bold text-slate-700">4 de 58</span>
+                <span class="text-slate-400">unidades en mora</span>
+              </div>
+              <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold">
+                Semáforo: Saludable
+              </span>
+            </div>
+          </div>
+
+          <!-- KPI 3: Tickets de Soporte Abiertos -->
+          <div class="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-sm hover:shadow-md transition">
+            <div class="flex items-start justify-between">
+              <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Tickets de Soporte Abiertos</p>
+                <h3 class="text-2xl lg:text-3xl font-black text-slate-900 mt-2">5 Activos</h3>
+              </div>
+              <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center text-xl">
+                🎫
+              </div>
+            </div>
+            <!-- Desglose de Urgencia -->
+            <div class="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded bg-rose-100 text-rose-700 font-bold text-[11px]">2 Urgentes</span>
+                <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-medium text-[11px]">3 Normales</span>
+              </div>
+              <span class="text-slate-400 font-medium text-[11px]">Resp: ~3.2 hrs</span>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- =========================================================================
+             B) TABLA DINÁMICA DE UNIDADES HABITACIONALES
+             ========================================================================= -->
+        <section class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          
+          <!-- Barra de Herramientas de la Tabla: Filtros y Búsqueda -->
+          <div class="p-5 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/50">
+            <div>
+              <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                <span>Directorio de Unidades y Estados de Cuenta</span>
+                <span id="badge-total-filtro" class="text-xs px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 font-bold">8 listadas</span>
+              </h3>
+              <p class="text-xs text-slate-500 mt-0.5">Control de copropiedad, titularidad y solvencia financiera.</p>
+            </div>
+
+            <!-- Filtros de Estado -->
+            <div class="flex items-center gap-2">
+              <div class="inline-flex p-1 bg-slate-200/80 rounded-xl text-xs font-medium" id="filter-status-group">
+                <button data-filter="all" class="filter-btn px-3 py-1.5 rounded-lg bg-white text-slate-800 font-bold shadow-xs transition">
+                  Todas
+                </button>
+                <button data-filter="AL_DIA" class="filter-btn px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition">
+                  Al Día (🟢)
+                </button>
+                <button data-filter="EN_MORA" class="filter-btn px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition">
+                  En Mora (🔴)
+                </button>
+              </div>
+
+              <!-- Input de filtro rápido de la tabla -->
+              <input 
+                type="text" 
+                id="table-filter-input"
+                placeholder="Filtrar tabla..."
+                class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 w-44"
+              >
+            </div>
+          </div>
+
+          <!-- Tabla HTML Semántica -->
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse" id="units-table">
+              <thead>
+                <tr class="border-b border-slate-200 bg-slate-100/70 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  <th class="py-3.5 px-6">Identificador</th>
+                  <th class="py-3.5 px-6">Propietario / Residente</th>
+                  <th class="py-3.5 px-6">Coeficiente</th>
+                  <th class="py-3.5 px-6">Saldo Actual</th>
+                  <th class="py-3.5 px-6">Estado de Cuenta</th>
+                  <th class="py-3.5 px-6 text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 text-xs text-slate-700" id="units-tbody">
+                <!-- Se pobla dinámicamente mediante JavaScript con mock data -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Paginación y Resumen -->
+          <div class="px-6 py-4 border-t border-slate-200 bg-slate-50/50 flex items-center justify-between text-xs text-slate-500">
+            <span id="table-summary-text">Mostrando 8 de 58 unidades habitacionales</span>
+            <div class="flex items-center gap-1.5">
+              <button class="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 transition disabled:opacity-50" disabled>Anterior</button>
+              <button class="px-2.5 py-1.5 rounded-lg bg-indigo-600 text-white font-bold">1</button>
+              <button class="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 transition">2</button>
+              <button class="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 transition">Siguiente</button>
+            </div>
+          </div>
+
+        </section>
+
+      </main>
+    </div>
+
+  </div>
+
+  <!-- =========================================================================
+       MODAL DE ACCIONES DE LA UNIDAD
+       ========================================================================= -->
+  <div id="unit-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-200 p-6 space-y-5 animate-fade">
+      
+      <div class="flex items-start justify-between border-b border-slate-100 pb-3">
+        <div>
+          <span class="text-xs font-bold text-indigo-600 uppercase tracking-wide">Ficha de Unidad</span>
+          <h3 class="text-lg font-black text-slate-900" id="modal-unit-title">Torre A - 101</h3>
+        </div>
+        <button id="btn-close-modal" class="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition">
+          ✕
+        </button>
+      </div>
+
+      <div class="space-y-3 text-xs" id="modal-unit-details">
+        <!-- Rellenado por JS -->
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
+        <button id="btn-action-estado-cuenta" class="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl transition text-xs flex items-center justify-center gap-1.5">
+          <span>📜 Ver Estado Cuenta</span>
+        </button>
+        <button id="btn-action-registrar-pago" class="px-3 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition text-xs flex items-center justify-center gap-1.5">
+          <span>💳 Registrar Pago</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       JAVASCRIPT: MOCK DATA Y CONTROL DE ESTADOS
+       ========================================================================= -->
+  <script>
+    // 1. MOCK DATA: UNIDADES HABITACIONALES
+    const mockUnidades = [
+      {
+        id: "u-101",
+        identificador: "Torre A - 101",
+        propietario: "Dra. Laura Valencia",
+        email: "laura@condominio.com",
+        telefono: "+593 99 123 4567",
+        coeficiente: 0.0450,
+        saldo: 0.00,
+        estado: "AL_DIA",
+        ultimaAlícuota: "Noviembre 2026 ($90.00)"
+      },
+      {
+        id: "u-102",
+        identificador: "Torre A - 102",
+        propietario: "Ing. Roberto Alarcón",
+        email: "roberto@condominio.com",
+        telefono: "+593 99 876 5432",
+        coeficiente: 0.0450,
+        saldo: 198.00,
+        estado: "EN_MORA",
+        ultimaAlícuota: "2 cuotas pendientes + recargo"
+      },
+      {
+        id: "u-201",
+        identificador: "Torre A - 201",
+        propietario: "Lic. María Augusta Peña",
+        email: "maria.pena@condominio.com",
+        telefono: "+593 98 444 1122",
+        coeficiente: 0.0480,
+        saldo: 0.00,
+        estado: "AL_DIA",
+        ultimaAlícuota: "Noviembre 2026 ($96.00)"
+      },
+      {
+        id: "u-204",
+        identificador: "Torre B - 204",
+        propietario: "Arq. Francisco Salgado",
+        email: "francisco@condominio.com",
+        telefono: "+593 99 333 7788",
+        coeficiente: 0.0510,
+        saldo: 310.50,
+        estado: "EN_MORA",
+        ultimaAlícuota: "3 meses en mora + multa asamblea"
+      },
+      {
+        id: "u-302",
+        identificador: "Torre B - 302",
+        propietario: "Esteban Pazmiño",
+        email: "esteban@condominio.com",
+        telefono: "+593 98 777 9900",
+        coeficiente: 0.0490,
+        saldo: 0.00,
+        estado: "AL_DIA",
+        ultimaAlícuota: "Noviembre 2026 ($98.00)"
+      },
+      {
+        id: "u-casa-10",
+        identificador: "Casa 10 (Adosada)",
+        propietario: "Dra. Carmen Andrade",
+        email: "carmen@condominio.com",
+        telefono: "+593 99 555 4433",
+        coeficiente: 0.0650,
+        saldo: 0.00,
+        estado: "AL_DIA",
+        ultimaAlícuota: "Noviembre 2026 ($130.00)"
+      },
+      {
+        id: "u-casa-12",
+        identificador: "Casa 12 (Adosada)",
+        propietario: "Galo Benavides",
+        email: "galo@condominio.com",
+        telefono: "+593 98 222 6655",
+        coeficiente: 0.0650,
+        saldo: 143.00,
+        estado: "EN_MORA",
+        ultimaAlícuota: "Octubre 2026 pendiente"
+      },
+      {
+        id: "u-penthouse-1",
+        identificador: "Penthouse 1 (Torre C)",
+        propietario: "Dr. Marcelo Vivanco",
+        email: "marcelo@condominio.com",
+        telefono: "+593 99 111 8899",
+        coeficiente: 0.0820,
+        saldo: 0.00,
+        estado: "AL_DIA",
+        ultimaAlícuota: "Noviembre 2026 ($164.00)"
+      }
+    ];
+
+    // ESTADO DE FILTRADO
+    let currentFilter = "all";
+    let searchQuery = "";
+
+    // REFERENCIAS DOM
+    const tbody = document.getElementById("units-tbody");
+    const filterButtons = document.querySelectorAll(".filter-btn");
+    const tableFilterInput = document.getElementById("table-filter-input");
+    const badgeTotal = document.getElementById("badge-total-filtro");
+    const modal = document.getElementById("unit-modal");
+    const modalTitle = document.getElementById("modal-unit-title");
+    const modalDetails = document.getElementById("modal-unit-details");
+    const btnCloseModal = document.getElementById("btn-close-modal");
+
+    // 2. FUNCIÓN DE RENDERIZADO DE LA TABLA
+    function renderUnitsTable() {
+      tbody.innerHTML = "";
+
+      const filtered = mockUnidades.filter(u => {
+        const matchesFilter = (currentFilter === "all") || (u.estado === currentFilter);
+        const matchesSearch = 
+          u.identificador.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          u.propietario.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          u.email.toLowerCase().includes(searchQuery.toLowerCase());
+        return matchesFilter && matchesSearch;
+      });
+
+      badgeTotal.innerText = `${filtered.length} listadas`;
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" class="py-8 text-center text-slate-400 italic">
+              No se encontraron unidades que coincidan con el filtro aplicado.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      filtered.forEach(u => {
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-slate-50/80 transition-colors";
+
+        const estadoBadge = u.estado === "AL_DIA"
+          ? `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+               <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+               Al Día
+             </span>`
+          : `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+               <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+               En Mora
+             </span>`;
+
+        const saldoDisplay = u.saldo > 0
+          ? `<span class="font-bold text-rose-600">$ ${u.saldo.toFixed(2)}</span>`
+          : `<span class="text-slate-400 font-medium">$ 0.00</span>`;
+
+        tr.innerHTML = `
+          <td class="py-3.5 px-6 font-bold text-slate-900">${u.identificador}</td>
+          <td class="py-3.5 px-6">
+            <div class="font-medium text-slate-800">${u.propietario}</div>
+            <div class="text-[11px] text-slate-400">${u.email}</div>
+          </td>
+          <td class="py-3.5 px-6 font-mono text-slate-600">${(u.coeficiente * 100).toFixed(2)}%</td>
+          <td class="py-3.5 px-6">${saldoDisplay}</td>
+          <td class="py-3.5 px-6">${estadoBadge}</td>
+          <td class="py-3.5 px-6 text-right">
+            <button class="btn-acciones px-3 py-1.5 rounded-lg border border-slate-300 hover:border-slate-400 bg-white hover:bg-slate-50 text-slate-700 font-semibold transition text-xs shadow-2xs" data-id="${u.id}">
+              Acciones ▾
+            </button>
+          </td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+
+      // Enganchar botones de acción
+      document.querySelectorAll(".btn-acciones").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const unitId = btn.getAttribute("data-id");
+          abrirModalUnidad(unitId);
+        });
+      });
+    }
+
+    // 3. MODAL DE ACCIONES DE LA UNIDAD
+    function abrirModalUnidad(unitId) {
+      const u = mockUnidades.find(item => item.id === unitId);
+      if (!u) return;
+
+      modalTitle.innerText = u.identificador;
+      modalDetails.innerHTML = `
+        <div class="p-3 bg-slate-50 rounded-xl space-y-1.5 border border-slate-100">
+          <p><strong class="text-slate-900">Propietario:</strong> ${u.propietario}</p>
+          <p><strong class="text-slate-900">Teléfono:</strong> ${u.telefono}</p>
+          <p><strong class="text-slate-900">Email:</strong> ${u.email}</p>
+          <p><strong class="text-slate-900">Alícuota:</strong> ${(u.coeficiente * 100).toFixed(2)}% ($ ${(2000 * u.coeficiente).toFixed(2)} / mes)</p>
+        </div>
+        <div class="p-3 ${u.saldo > 0 ? 'bg-rose-50 border-rose-100 text-rose-800' : 'bg-emerald-50 border-emerald-100 text-emerald-800'} rounded-xl border flex items-center justify-between">
+          <span class="font-bold">Deuda Actual:</span>
+          <span class="font-black text-sm">$ ${u.saldo.toFixed(2)} USD</span>
+        </div>
+      `;
+
+      modal.classList.remove("hidden");
+    }
+
+    btnCloseModal.addEventListener("click", () => modal.classList.add("hidden"));
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) modal.classList.add("hidden");
+    });
+
+    // 4. CONTROLADORES DE FILTROS
+    filterButtons.forEach(btn => {
+      btn.addEventListener("click", () => {
+        filterButtons.forEach(b => {
+          b.className = "filter-btn px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition";
+        });
+        btn.className = "filter-btn px-3 py-1.5 rounded-lg bg-white text-slate-800 font-bold shadow-xs transition";
+        currentFilter = btn.getAttribute("data-filter");
+        renderUnitsTable();
+      });
+    });
+
+    tableFilterInput.addEventListener("input", (e) => {
+      searchQuery = e.target.value;
+      renderUnitsTable();
+    });
+
+    // 5. ACCIONES DE EJEMPLO
+    document.getElementById("btn-cron-alicuotas").addEventListener("click", () => {
+      alert("⚡ [CRON Simulado] Se ha ejecutado la generación masiva de alícuotas para el periodo Noviembre 2026. 58 obligaciones generadas con éxito.");
+    });
+
+    document.getElementById("btn-action-registrar-pago").addEventListener("click", () => {
+      alert("💳 Redirigiendo a formulario de validación contable para registrar depósito/transferencia.");
+      modal.classList.add("hidden");
+    });
+
+    document.getElementById("btn-action-estado-cuenta").addEventListener("click", () => {
+      alert("📜 Abriendo estado de cuenta consolidado con historial de obligaciones y recibos.");
+      modal.classList.add("hidden");
+    });
+
+    // Inicializar render
+    renderUnitsTable();
+  </script>
+</body>
+</html>

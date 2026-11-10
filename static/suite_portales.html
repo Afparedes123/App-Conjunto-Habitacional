@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-950">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Suite UI - 3 Paneles de Condominios</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    iframe {
+      border: none;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .device-phone {
+      width: 412px;
+      height: 840px;
+      border-radius: 44px;
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 0 12px #1e293b;
+    }
+    .device-tablet {
+      width: 1024px;
+      height: 680px;
+      border-radius: 28px;
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 0 12px #1e293b;
+    }
+    .device-desktop {
+      width: 100%;
+      height: 100%;
+      border-radius: 0;
+      box-shadow: none;
+    }
+  </style>
+</head>
+<body class="h-full text-slate-100 flex flex-col font-sans overflow-hidden bg-slate-950">
+
+  <!-- =========================================================================
+       BARRA DE CONTROL SUPERIOR (SWITCHER DE PERFILES)
+       ========================================================================= -->
+  <header class="h-16 bg-slate-900 border-b border-slate-800 px-6 flex items-center justify-between shrink-0 z-20">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold text-lg">
+        🏢
+      </div>
+      <div>
+        <h1 class="text-sm font-bold text-white flex items-center gap-2">
+          <span>Suite UI Condominios</span>
+          <span class="text-xs px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-400 font-mono">Tailwind CSS</span>
+        </h1>
+        <p class="text-[11px] text-slate-400">Selector de roles y dispositivos adaptados</p>
+      </div>
+    </div>
+
+    <!-- BOTONES DE CAMBIO DE ROL / VISTA -->
+    <div class="inline-flex p-1 bg-slate-950 rounded-2xl border border-slate-800 text-xs font-semibold">
+      <button id="tab-admin" class="role-switcher-btn px-4 py-2 rounded-xl bg-indigo-600 text-white shadow-xs transition flex items-center gap-2">
+        <span>🖥️</span>
+        <span class="hidden sm:inline">1. Dashboard Admin (Desktop)</span>
+        <span class="sm:hidden">Admin</span>
+      </button>
+
+      <button id="tab-residente" class="role-switcher-btn px-4 py-2 rounded-xl text-slate-400 hover:text-white transition flex items-center gap-2">
+        <span>📱</span>
+        <span class="hidden sm:inline">2. App Residente (Mobile)</span>
+        <span class="sm:hidden">Residente</span>
+      </button>
+
+      <button id="tab-guardia" class="role-switcher-btn px-4 py-2 rounded-xl text-slate-400 hover:text-white transition flex items-center gap-2">
+        <span>📟</span>
+        <span class="hidden sm:inline">3. Garita Guardia (Tablet)</span>
+        <span class="sm:hidden">Guardia</span>
+      </button>
+    </div>
+
+    <!-- ACCESO DIRECTO EN NUEVA PESTAÑA -->
+    <div class="flex items-center gap-2">
+      <a id="btn-external-link" href="/static/admin_dashboard.html" target="_blank" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium border border-slate-700 flex items-center gap-1.5 transition">
+        <span>Abrir en Pestaña Nueva ↗</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- =========================================================================
+       VIEWPORT INTERACTIVO (IFRAME CON SIMULADOR DE DISPOSITIVO)
+       ========================================================================= -->
+  <main class="flex-1 bg-slate-950/80 p-4 sm:p-6 flex items-center justify-center overflow-hidden relative">
+    
+    <!-- Contenedor del Iframe -->
+    <iframe 
+      id="portal-viewport" 
+      src="/static/admin_dashboard.html" 
+      class="device-desktop bg-white transition-all duration-300"
+    ></iframe>
+
+  </main>
+
+  <script>
+    const iframe = document.getElementById("portal-viewport");
+    const externalLink = document.getElementById("btn-external-link");
+
+    const views = {
+      admin: {
+        url: "/static/admin_dashboard.html",
+        className: "device-desktop bg-white"
+      },
+      residente: {
+        url: "/static/resident_app.html",
+        className: "device-phone bg-slate-900"
+      },
+      guardia: {
+        url: "/static/guard_tablet.html",
+        className: "device-tablet bg-slate-950"
+      }
+    };
+
+    function switchView(viewKey) {
+      const v = views[viewKey];
+      iframe.src = v.url;
+      iframe.className = v.className;
+      externalLink.href = v.url;
+
+      document.querySelectorAll(".role-switcher-btn").forEach(btn => {
+        btn.className = "role-switcher-btn px-4 py-2 rounded-xl text-slate-400 hover:text-white transition flex items-center gap-2";
+      });
+
+      const activeBtn = document.getElementById(`tab-${viewKey}`);
+      if (activeBtn) {
+        activeBtn.className = "role-switcher-btn px-4 py-2 rounded-xl bg-indigo-600 text-white shadow-xs transition flex items-center gap-2";
+      }
+    }
+
+    document.getElementById("tab-admin").addEventListener("click", () => switchView("admin"));
+    document.getElementById("tab-residente").addEventListener("click", () => switchView("residente"));
+    document.getElementById("tab-guardia").addEventListener("click", () => switchView("guardia"));
+  </script>
+</body>
+</html>

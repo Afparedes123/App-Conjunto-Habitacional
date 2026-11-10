@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-900">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Mi Condominio - App del Residente</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Efecto de toque táctil móvil */
+    .tap-effect:active {
+      transform: scale(0.96);
+    }
+    /* Ocultar barra de scroll en vistas móviles */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+    .animate-sheet {
+      animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+  </style>
+</head>
+<body class="h-full text-slate-800 antialiased flex justify-center bg-slate-950 font-sans">
+
+  <!-- =========================================================================
+       CONTENEDOR DISPOSITIVO MÓVIL (Mobile-First Frame)
+       ========================================================================= -->
+  <div class="w-full max-w-md bg-slate-50 min-h-screen flex flex-col justify-between relative shadow-2xl overflow-hidden border-x border-slate-800">
+
+    <!-- =========================================================================
+         HEADER SUPERIOR MÓVIL (Con Perfil y Notificaciones)
+         ========================================================================= -->
+    <header class="bg-white px-5 pt-4 pb-3 border-b border-slate-100 flex items-center justify-between sticky top-0 z-30 shadow-2xs">
+      <div class="flex items-center gap-3">
+        <!-- Avatar del Residente -->
+        <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-600 flex items-center justify-center text-white font-bold text-sm shadow-sm ring-2 ring-indigo-100">
+          LV
+        </div>
+        <div>
+          <div class="flex items-center gap-1.5">
+            <h1 class="text-sm font-bold text-slate-900 leading-tight">Dra. Laura Valencia</h1>
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          </div>
+          <p class="text-[11px] font-medium text-slate-400">Torre A - 101 • Propietaria</p>
+        </div>
+      </div>
+
+      <!-- Icono de Notificaciones -->
+      <button class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200 transition relative tap-effect">
+        <span class="text-base">🔔</span>
+        <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white"></span>
+      </button>
+    </header>
+
+    <!-- =========================================================================
+         ÁREA DE CONTENIDO PRINCIPAL (Con Pestañas Móviles)
+         ========================================================================= -->
+    <main class="flex-1 overflow-y-auto no-scrollbar p-5 pb-24 space-y-6">
+
+      <!-- =====================================================================
+           PESTAÑA 1: INICIO (Pantalla Principal del Residente)
+           ===================================================================== -->
+      <div id="tab-content-inicio" class="tab-pane space-y-6">
+
+        <!-- A) TARJETA DE SALDO DESTACADA (Hero Card) -->
+        <section class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-900 via-indigo-800 to-slate-900 text-white p-6 shadow-xl shadow-indigo-950/40 border border-indigo-700/40">
+          <!-- Decoración visual de fondo -->
+          <div class="absolute -right-8 -bottom-8 w-36 h-36 bg-indigo-500/20 rounded-full blur-2xl pointer-events-none"></div>
+          <div class="absolute top-0 right-0 p-5 text-indigo-300 text-xs font-semibold flex items-center gap-1">
+            <span>Alícuota Ordinaria</span>
+          </div>
+
+          <div class="relative z-10 space-y-4">
+            <div>
+              <p class="text-xs uppercase font-medium tracking-wider text-indigo-200">Saldo Actual a Pagar</p>
+              <div class="flex items-baseline gap-2 mt-1">
+                <span class="text-3xl sm:text-4xl font-black tracking-tight" id="resident-saldo-display">$ 45.00</span>
+                <span class="text-xs text-indigo-200 font-medium">USD</span>
+              </div>
+              <p class="text-[11px] text-indigo-300 mt-1 flex items-center gap-1" id="resident-vencimiento-text">
+                <span>⏱️ Fecha límite: 10 de Noviembre</span>
+              </p>
+            </div>
+
+            <!-- Botón de Acción Primaria: "Pagar ahora" -->
+            <div class="pt-2 flex items-center gap-3">
+              <button id="btn-pagar-ahora" class="flex-1 py-3 px-4 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-black text-xs rounded-2xl shadow-lg shadow-emerald-950/30 transition flex items-center justify-center gap-2 tap-effect">
+                <span>💳 Pagar ahora</span>
+              </button>
+              <button id="btn-ver-desglose" class="py-3 px-3.5 bg-white/10 hover:bg-white/20 active:bg-white/30 text-white font-semibold text-xs rounded-2xl backdrop-blur-xs transition tap-effect">
+                Detalle
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- B) BOTONES DE ACCIÓN RÁPIDA (Grid de 4 Iconos) -->
+        <section class="space-y-3">
+          <div class="flex items-center justify-between">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">Acciones Frecuentes</h2>
+            <span class="text-[11px] text-indigo-600 font-bold">Servicios</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3.5">
+            
+            <!-- 1. Mi Estado de Cuenta -->
+            <button id="quick-btn-estado-cuenta" class="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:border-indigo-300 hover:shadow-md transition text-left flex flex-col justify-between tap-effect group">
+              <div class="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center text-xl mb-3 group-hover:scale-105 transition-transform">
+                📊
+              </div>
+              <div>
+                <p class="text-xs font-bold text-slate-900">Estado de Cuenta</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">Historial y recibos</p>
+              </div>
+            </button>
+
+            <!-- 2. Generar Pase Visita -->
+            <button id="quick-btn-pase-qr" class="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:border-emerald-300 hover:shadow-md transition text-left flex flex-col justify-between tap-effect group">
+              <div class="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center text-xl mb-3 group-hover:scale-105 transition-transform">
+                🎟️
+              </div>
+              <div>
+                <p class="text-xs font-bold text-slate-900">Generar Pase QR</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">Acceso a garita</p>
+              </div>
+            </button>
+
+            <!-- 3. Reservar Área Comunal -->
+            <button id="quick-btn-reserva" class="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:border-violet-300 hover:shadow-md transition text-left flex flex-col justify-between tap-effect group">
+              <div class="w-11 h-11 rounded-2xl bg-violet-50 text-violet-600 border border-violet-100 flex items-center justify-center text-xl mb-3 group-hover:scale-105 transition-transform">
+                🏊
+              </div>
+              <div>
+                <p class="text-xs font-bold text-slate-900">Reservar Área</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">BBQ, Piscina, Pádel</p>
+              </div>
+            </button>
+
+            <!-- 4. Reportar Daño -->
+            <button id="quick-btn-reportar-dano" class="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:border-amber-300 hover:shadow-md transition text-left flex flex-col justify-between tap-effect group">
+              <div class="w-11 h-11 rounded-2xl bg-amber-50 text-amber-600 border border-amber-100 flex items-center justify-center text-xl mb-3 group-hover:scale-105 transition-transform">
+                🛠️
+              </div>
+              <div>
+                <p class="text-xs font-bold text-slate-900">Reportar Daño</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">Ticket de soporte</p>
+              </div>
+            </button>
+
+          </div>
+        </section>
+
+        <!-- C) SECCIÓN DE NOVEDADES DEL CONDOMINIO -->
+        <section class="space-y-3">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">Avisos de Administración</h2>
+          <div class="bg-indigo-50/70 border border-indigo-100 rounded-2xl p-4 flex items-start gap-3">
+            <span class="text-2xl">📢</span>
+            <div class="space-y-1">
+              <p class="text-xs font-bold text-indigo-950">Mantenimiento de Ascensores - Torre A</p>
+              <p class="text-[11px] text-slate-600 leading-relaxed">
+                Este jueves 12 de Noviembre de 09:00 a 13:00 se realizará lubricación preventiva. Por favor planificar el uso de gradas.
+              </p>
+              <span class="inline-block text-[10px] font-semibold text-indigo-700 bg-indigo-100/80 px-2 py-0.5 rounded-md mt-1">
+                Administración General
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <!-- D) PRÓXIMAS VISITAS ACTIVAS -->
+        <section class="space-y-3">
+          <div class="flex items-center justify-between">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">Pases Activos Hoy</h2>
+            <button id="link-ver-pases" class="text-[11px] text-indigo-600 font-bold hover:underline">Ver todos</button>
+          </div>
+          
+          <div class="p-3.5 bg-white rounded-2xl border border-slate-200 flex items-center justify-between shadow-2xs">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-lg">
+                🛵
+              </div>
+              <div>
+                <p class="text-xs font-bold text-slate-900">Carlos Delivery (UberEats)</p>
+                <p class="text-[11px] text-slate-400">Vence hoy a las 22:30</p>
+              </div>
+            </div>
+            <span class="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold">
+              ACTIVO
+            </span>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- =====================================================================
+           PESTAÑA 2: PAGOS (Contenido secundario)
+           ===================================================================== -->
+      <div id="tab-content-pagos" class="tab-pane hidden space-y-4">
+        <h2 class="text-base font-bold text-slate-900">Módulo Financiero de la Unidad</h2>
+        <p class="text-xs text-slate-500">Historial de alícuotas, cuotas extraordinarias y comprobantes registrados.</p>
+
+        <div class="bg-white rounded-2xl p-4 border border-slate-200 space-y-3">
+          <h3 class="text-xs font-bold uppercase text-slate-400">Últimos Movimientos</h3>
+          <div class="divide-y divide-slate-100 text-xs">
+            <div class="py-2.5 flex justify-between items-center">
+              <div>
+                <p class="font-bold text-slate-800">Alícuota Ordinaria Noviembre</p>
+                <p class="text-[11px] text-slate-400">Emitido: 01 Nov 2026</p>
+              </div>
+              <span class="font-bold text-rose-600">$ 45.00 PENDIENTE</span>
+            </div>
+            <div class="py-2.5 flex justify-between items-center">
+              <div>
+                <p class="font-bold text-slate-800">Alícuota Ordinaria Octubre</p>
+                <p class="text-[11px] text-slate-400">Pagado con transferencia</p>
+              </div>
+              <span class="font-bold text-emerald-600">$ 45.00 PAGADO</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- =====================================================================
+           PESTAÑA 3: PASES QR (Contenido secundario)
+           ===================================================================== -->
+      <div id="tab-content-pases" class="tab-pane hidden space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-base font-bold text-slate-900">Pases de Garita (QR)</h2>
+          <button id="btn-crear-pase-tab" class="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-bold shadow-xs">
+            + Nuevo Pase
+          </button>
+        </div>
+        <div class="p-4 bg-white rounded-2xl border border-slate-200 text-center space-y-3">
+          <div class="w-36 h-36 mx-auto bg-slate-900 rounded-2xl flex items-center justify-center p-3 text-white font-mono text-xs">
+            [CÓDIGO QR VISITAS]
+          </div>
+          <p class="text-xs font-bold text-slate-900">Carlos Delivery (UberEats)</p>
+          <p class="text-[11px] text-slate-400">Muestra este código al guardia de seguridad en garita.</p>
+        </div>
+      </div>
+
+      <!-- =====================================================================
+           PESTAÑA 4: RESERVAS (Contenido secundario)
+           ===================================================================== -->
+      <div id="tab-content-reservas" class="tab-pane hidden space-y-4">
+        <h2 class="text-base font-bold text-slate-900">Áreas Comunales Disponibles</h2>
+        <div class="space-y-3 text-xs">
+          <div class="p-4 bg-white rounded-2xl border border-slate-200 flex justify-between items-center">
+            <div>
+              <p class="font-bold text-slate-900">🍖 Área BBQ Panorámica</p>
+              <p class="text-slate-400 text-[11px]">Aforo: 25 personas • Costo: $20</p>
+            </div>
+            <button class="px-3 py-1.5 bg-indigo-600 text-white font-bold rounded-xl text-xs">Reservar</button>
+          </div>
+          <div class="p-4 bg-white rounded-2xl border border-slate-200 flex justify-between items-center">
+            <div>
+              <p class="font-bold text-slate-900">🏊 Piscina y Jacuzzi</p>
+              <p class="text-slate-400 text-[11px]">Aforo: 30 personas • Gratis</p>
+            </div>
+            <button class="px-3 py-1.5 bg-indigo-600 text-white font-bold rounded-xl text-xs">Reservar</button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- =========================================================================
+         BOTTOM NAVIGATION BAR (Barra de Navegación Inferior Fija)
+         ========================================================================= -->
+    <nav class="bg-white/95 backdrop-blur-md border-t border-slate-200 px-4 py-2 flex items-center justify-around fixed bottom-0 max-w-md w-full z-40 shadow-lg">
+      
+      <!-- Tab 1: Inicio -->
+      <button data-tab="inicio" class="bottom-tab-btn flex flex-col items-center py-1 px-3 text-indigo-600 transition tap-effect">
+        <span class="text-xl">🏠</span>
+        <span class="text-[10px] font-bold mt-0.5">Inicio</span>
+      </button>
+
+      <!-- Tab 2: Pagos -->
+      <button data-tab="pagos" class="bottom-tab-btn flex flex-col items-center py-1 px-3 text-slate-400 hover:text-slate-700 transition tap-effect">
+        <span class="text-xl">💳</span>
+        <span class="text-[10px] font-medium mt-0.5">Pagos</span>
+      </button>
+
+      <!-- Tab 3: Pases QR -->
+      <button data-tab="pases" class="bottom-tab-btn flex flex-col items-center py-1 px-3 text-slate-400 hover:text-slate-700 transition tap-effect">
+        <span class="text-xl">🎟️</span>
+        <span class="text-[10px] font-medium mt-0.5">Pases QR</span>
+      </button>
+
+      <!-- Tab 4: Reservas -->
+      <button data-tab="reservas" class="bottom-tab-btn flex flex-col items-center py-1 px-3 text-slate-400 hover:text-slate-700 transition tap-effect">
+        <span class="text-xl">🏊</span>
+        <span class="text-[10px] font-medium mt-0.5">Reservas</span>
+      </button>
+
+    </nav>
+
+    <!-- =========================================================================
+         MODAL DE PAGO RÁPIDO (Action Sheet)
+         ========================================================================= -->
+    <div id="modal-pago" class="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-end justify-center hidden">
+      <div class="bg-white rounded-t-3xl max-w-md w-full p-6 space-y-4 animate-sheet shadow-2xl border-t border-slate-200">
+        
+        <div class="w-12 h-1 bg-slate-300 rounded-full mx-auto"></div>
+
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-base font-black text-slate-900">Registrar Pago de Alícuota</h3>
+            <p class="text-xs text-slate-400">Torre A - 101 • Periodo Noviembre 2026</p>
+          </div>
+          <button id="btn-cerrar-pago" class="text-slate-400 hover:text-slate-800 text-lg p-1">✕</button>
+        </div>
+
+        <div class="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-center justify-between">
+          <span class="text-xs font-bold text-emerald-900">Monto Obligación:</span>
+          <span class="text-xl font-black text-emerald-700">$ 45.00 USD</span>
+        </div>
+
+        <!-- Opciones de Pago -->
+        <div class="space-y-2 text-xs">
+          <label class="block font-bold text-slate-700">Seleccionar Método:</label>
+          <div class="grid grid-cols-2 gap-2">
+            <button class="p-3 rounded-xl border-2 border-indigo-600 bg-indigo-50/50 text-indigo-900 font-bold flex flex-col items-center gap-1">
+              <span class="text-lg">🏦</span>
+              <span>Transferencia</span>
+            </button>
+            <button class="p-3 rounded-xl border border-slate-200 hover:border-slate-300 text-slate-600 font-medium flex flex-col items-center gap-1">
+              <span class="text-lg">💳</span>
+              <span>Tarjeta Débito</span>
+            </button>
+          </div>
+        </div>
+
+        <button id="btn-confirmar-pago-simulado" class="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-2xl text-xs shadow-lg transition tap-effect">
+          Confirmar y Subir Comprobante
+        </button>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- =========================================================================
+       JAVASCRIPT: MANEJO DE ESTADOS Y PESTAÑAS MÓVILES
+       ========================================================================= -->
+  <script>
+    // CONTROL DE PESTAÑAS DE LA BOTTOM BAR
+    const tabButtons = document.querySelectorAll(".bottom-tab-btn");
+    const tabPanes = document.querySelectorAll(".tab-pane");
+
+    function setActiveTab(tabName) {
+      tabPanes.forEach(pane => pane.classList.add("hidden"));
+      const activePane = document.getElementById(`tab-content-${tabName}`);
+      if (activePane) activePane.classList.remove("hidden");
+
+      tabButtons.forEach(btn => {
+        const isCurrent = btn.getAttribute("data-tab") === tabName;
+        if (isCurrent) {
+          btn.className = "bottom-tab-btn flex flex-col items-center py-1 px-3 text-indigo-600 transition tap-effect";
+          btn.querySelector("span:last-child").className = "text-[10px] font-bold mt-0.5";
+        } else {
+          btn.className = "bottom-tab-btn flex flex-col items-center py-1 px-3 text-slate-400 hover:text-slate-700 transition tap-effect";
+          btn.querySelector("span:last-child").className = "text-[10px] font-medium mt-0.5";
+        }
+      });
+    }
+
+    tabButtons.forEach(btn => {
+      btn.addEventListener("click", () => {
+        const tab = btn.getAttribute("data-tab");
+        setActiveTab(tab);
+      });
+    });
+
+    // CONTROL DEL MODAL DE PAGO
+    const modalPago = document.getElementById("modal-pago");
+    const btnPagarAhora = document.getElementById("btn-pagar-ahora");
+    const btnCerrarPago = document.getElementById("btn-cerrar-pago");
+    const btnConfirmarPago = document.getElementById("btn-confirmar-pago-simulado");
+    const saldoDisplay = document.getElementById("resident-saldo-display");
+    const vencimientoText = document.getElementById("resident-vencimiento-text");
+
+    btnPagarAhora.addEventListener("click", () => modalPago.classList.remove("hidden"));
+    btnCerrarPago.addEventListener("click", () => modalPago.classList.add("hidden"));
+    modalPago.addEventListener("click", (e) => {
+      if (e.target === modalPago) modalPago.classList.add("hidden");
+    });
+
+    // SIMULACIÓN DE PAGO EXITOSO
+    btnConfirmarPago.addEventListener("click", () => {
+      modalPago.classList.add("hidden");
+      saldoDisplay.innerText = "$ 0.00";
+      saldoDisplay.className = "text-3xl sm:text-4xl font-black tracking-tight text-emerald-400";
+      vencimientoText.innerHTML = "<span>✅ ¡Estás al día en todas tus cuotas!</span>";
+      btnPagarAhora.innerText = "✓ Comprobante en Revisión";
+      btnPagarAhora.disabled = true;
+      btnPagarAhora.className = "flex-1 py-3 px-4 bg-slate-800 text-slate-400 font-bold text-xs rounded-2xl cursor-default flex items-center justify-center gap-2";
+      alert("🎉 [Simulación de Pago] Comprobante subido exitosamente. El pago está en estado 'EN_REVISION' para el Administrador.");
+    });
+
+    // ACCIONES RÁPIDAS
+    document.getElementById("quick-btn-estado-cuenta").addEventListener("click", () => setActiveTab("pagos"));
+    document.getElementById("quick-btn-pase-qr").addEventListener("click", () => setActiveTab("pases"));
+    document.getElementById("quick-btn-reserva").addEventListener("click", () => setActiveTab("reservas"));
+    document.getElementById("link-ver-pases").addEventListener("click", () => setActiveTab("pases"));
+
+    document.getElementById("quick-btn-reportar-dano").addEventListener("click", () => {
+      alert("🛠️ [Ticket de Soporte] Abriendo cámara y formulario para reportar daño en áreas comunes.");
+    });
+  </script>
+</body>
+</html>

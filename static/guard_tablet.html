@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-950">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Control de Acceso en Garita - Terminal del Guardia</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              emerald: '#10b981',
+              cyan: '#06b6d4',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Animación de haz láser de escáner */
+    @keyframes scanLaser {
+      0% { top: 6%; opacity: 0.8; }
+      50% { top: 90%; opacity: 1; }
+      100% { top: 6%; opacity: 0.8; }
+    }
+    .laser-line {
+      animation: scanLaser 2.2s ease-in-out infinite;
+    }
+    /* Estilos HUD táctiles */
+    .hud-corner {
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      border-color: #10b981;
+    }
+    /* Pulsación para botón de pánico */
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); }
+      50% { box-shadow: 0 0 30px rgba(239, 68, 68, 0.8); }
+    }
+    .panic-glow {
+      animation: pulseGlow 1.8s infinite;
+    }
+  </style>
+</head>
+<body class="h-full text-slate-100 antialiased flex flex-col font-sans select-none overflow-hidden bg-slate-950">
+
+  <!-- =========================================================================
+       1. HEADER SUPERIOR DE GARITA (Alto Contraste y Reloj en Vivo)
+       ========================================================================= -->
+  <header class="h-18 bg-slate-900 border-b border-slate-800 px-6 py-3 flex items-center justify-between shrink-0 shadow-lg">
+    <div class="flex items-center gap-4">
+      <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 border-2 border-emerald-500/40 text-emerald-400 flex items-center justify-center text-2xl font-black shadow-inner">
+        🛡️
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-base sm:text-lg font-black text-white tracking-wide uppercase">Garita Principal</h1>
+          <span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+            <span>TERMINAL ACTIVO</span>
+          </span>
+        </div>
+        <p class="text-xs text-slate-400">Guardia: José Guachamín • Turno Noche (20:00 - 08:00)</p>
+      </div>
+    </div>
+
+    <!-- Reloj Digital y Acciones Críticas -->
+    <div class="flex items-center gap-4">
+      <!-- Reloj Digital en Vivo -->
+      <div class="text-right hidden sm:block bg-slate-950 px-4 py-1.5 rounded-xl border border-slate-800">
+        <p class="text-xs text-slate-400 uppercase tracking-widest font-mono" id="live-date">LUN 09 NOV</p>
+        <p class="text-xl font-black font-mono text-emerald-400 tracking-wider" id="live-clock">20:15:42</p>
+      </div>
+
+      <!-- BOTÓN DE PÁNICO VISIBLE Y ACCESIBLE -->
+      <button id="btn-panico" class="px-5 py-3 rounded-2xl bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white font-black text-xs sm:text-sm tracking-wider uppercase flex items-center gap-2 panic-glow transition transform active:scale-95 border border-rose-400/50">
+        <span class="text-lg">🚨</span>
+        <span>Botón Pánico</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- =========================================================================
+       2. CONTENIDO PRINCIPAL EN FORMATO TABLET (Split Screen: Escáner vs Feed)
+       ========================================================================= -->
+  <main class="flex-1 p-5 grid grid-cols-1 lg:grid-cols-12 gap-5 overflow-hidden">
+
+    <!-- =======================================================================
+         COLUMNA IZQUIERDA: ÁREA DE ESCÁNER PERMANENTE (7 Cols en Tablet)
+         ======================================================================= -->
+    <section class="lg:col-span-7 flex flex-col justify-between bg-slate-900 border-2 border-slate-800 rounded-3xl p-6 shadow-2xl relative">
+      
+      <!-- Encabezado del Visor -->
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div>
+          <h2 class="text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+            <span>📷 Visor de Cámara QR Permanente</span>
+          </h2>
+          <p class="text-xs text-slate-400">Alinee el código QR generado por el residente frente a la lente</p>
+        </div>
+        <span class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 text-xs font-mono">
+          Cámara 1 (Delantera)
+        </span>
+      </div>
+
+      <!-- VISOR DE CÁMARA CON HUD TÁCTIL Y LÁSER ESCANEADOR -->
+      <div class="relative w-full aspect-4/3 max-h-[380px] my-auto bg-slate-950 rounded-2xl border-2 border-emerald-500/40 overflow-hidden flex items-center justify-center shadow-inner group">
+        
+        <!-- Esquinas del HUD Estilo Mira Táctica -->
+        <div class="hud-corner top-4 left-4 border-t-4 border-l-4"></div>
+        <div class="hud-corner top-4 right-4 border-t-4 border-r-4"></div>
+        <div class="hud-corner bottom-4 left-4 border-b-4 border-l-4"></div>
+        <div class="hud-corner bottom-4 right-4 border-b-4 border-r-4"></div>
+
+        <!-- Línea Láser Animada -->
+        <div class="laser-line absolute left-6 right-6 h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_15px_#10b981]"></div>
+
+        <!-- Centro de Enfoque -->
+        <div class="text-center p-6 space-y-3 z-10">
+          <div class="w-24 h-24 mx-auto rounded-2xl border border-dashed border-emerald-500/40 bg-emerald-500/5 flex items-center justify-center text-4xl text-emerald-400">
+            🔲
+          </div>
+          <p class="text-xs font-mono font-bold text-emerald-400/90 tracking-wide">
+            ESPERANDO LECTURA DE CÓDIGO QR...
+          </p>
+          <p class="text-[11px] text-slate-400">
+            Distancia recomendada: 15 - 30 cm
+          </p>
+        </div>
+
+        <!-- Indicador de flash/luz nocturna -->
+        <button id="btn-toggle-luz" class="absolute bottom-4 right-4 px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-xs text-slate-200 border border-slate-700 flex items-center gap-1.5 transition">
+          <span>💡 Luz Auxiliar: <strong id="lbl-luz">OFF</strong></span>
+        </button>
+      </div>
+
+      <!-- CONTROLES RÁPIDOS INFERIORES: INGRESO MANUAL Y SIMULADORES -->
+      <div class="pt-4 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
+        
+        <!-- BOTÓN DE INGRESO MANUAL DESTACADO -->
+        <button id="btn-ingreso-manual" class="flex-1 py-3.5 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-bold text-xs sm:text-sm transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-950/40">
+          <span class="text-lg">📝</span>
+          <span>Ingreso Manual (Sin QR)</span>
+        </button>
+
+        <!-- Botones de Simulación Rápida de Garita -->
+        <div class="flex items-center gap-2">
+          <button id="btn-sim-qr-ok" class="py-3.5 px-3 rounded-2xl bg-slate-800 hover:bg-emerald-950/40 hover:border-emerald-500 text-emerald-400 border border-slate-700 text-xs font-bold transition flex items-center gap-1.5">
+            <span>✅ Simular Pase Válido</span>
+          </button>
+          <button id="btn-sim-qr-vencido" class="py-3.5 px-3 rounded-2xl bg-slate-800 hover:bg-rose-950/40 hover:border-rose-500 text-rose-400 border border-slate-700 text-xs font-bold transition flex items-center gap-1.5">
+            <span>⛔ Simular Vencido</span>
+          </button>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- =======================================================================
+         COLUMNA DERECHA: FEED EN TIEMPO REAL (5 Cols en Tablet)
+         ======================================================================= -->
+    <section class="lg:col-span-5 flex flex-col bg-slate-900 border-2 border-slate-800 rounded-3xl p-6 shadow-2xl overflow-hidden">
+      
+      <!-- Encabezado del Feed -->
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800 shrink-0">
+        <div>
+          <h2 class="text-sm font-bold uppercase tracking-wider text-white flex items-center gap-2">
+            <span>📋 Feed de Ingresos en Vivo</span>
+          </h2>
+          <p class="text-xs text-slate-400">Historial de entradas del turno actual</p>
+        </div>
+        <span id="badge-contador-ingresos" class="px-2.5 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-xs font-mono font-bold">
+          4 registros
+        </span>
+      </div>
+
+      <!-- LISTA DE ENTRADAS CON SCROLL AUTOMÁTICO -->
+      <div id="access-feed-container" class="flex-1 overflow-y-auto space-y-3 py-4 pr-1">
+        <!-- Renderizado dinámico de tarjetas de acceso -->
+      </div>
+
+      <!-- Resumen del Turno en el Pie -->
+      <div class="pt-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400 shrink-0">
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <span>Barrera Vehicular: <strong>OPERATIVA</strong></span>
+        </div>
+        <button id="btn-limpiar-feed" class="text-slate-400 hover:text-slate-200 text-[11px] underline">
+          Refrescar Feed
+        </button>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- =========================================================================
+       MODAL DE INGRESO MANUAL PARA VISITANTES SIN CÓDIGO QR
+       ========================================================================= -->
+  <div id="modal-manual" class="fixed inset-0 bg-black/80 backdrop-blur-xs z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border-2 border-indigo-500/40 rounded-3xl max-w-lg w-full p-6 space-y-5 shadow-2xl">
+      
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <span class="text-2xl">📝</span>
+          <h3 class="text-lg font-black text-white">Registro de Ingreso Manual</h3>
+        </div>
+        <button id="btn-cerrar-manual" class="text-slate-400 hover:text-white p-1 text-lg">✕</button>
+      </div>
+
+      <form id="form-ingreso-manual" class="space-y-4 text-xs">
+        <div>
+          <label class="block font-bold text-slate-300 mb-1">Nombre Completo del Visitante:</label>
+          <input type="text" id="manual-nombre" required placeholder="Ej. Pedro Picapiedra" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500 text-sm">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-slate-300 mb-1">Cédula / DNI:</label>
+            <input type="text" id="manual-cedula" required placeholder="1712345678" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500 text-sm">
+          </div>
+          <div>
+            <label class="block font-bold text-slate-300 mb-1">Placa Vehicular (Opcional):</label>
+            <input type="text" id="manual-placa" placeholder="PBA-9876" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500 text-sm uppercase">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-slate-300 mb-1">Unidad de Destino:</label>
+            <select id="manual-unidad" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500 text-sm">
+              <option value="Torre A - 101">Torre A - 101 (Dra. Laura)</option>
+              <option value="Torre A - 102">Torre A - 102 (Ing. Roberto)</option>
+              <option value="Torre B - 204">Torre B - 204 (Arq. Salgado)</option>
+              <option value="Torre B - 302">Torre B - 302 (Esteban P.)</option>
+              <option value="Casa 10">Casa 10 (Carmen Andrade)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-bold text-slate-300 mb-1">Tipo de Ingreso:</label>
+            <select id="manual-tipo" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500 text-sm">
+              <option value="DELIVERY">Delivery / Pedido</option>
+              <option value="FAMILIAR">Familiar / Amigo</option>
+              <option value="CONTRATISTA">Contratista / Obrero</option>
+              <option value="TAXI">Taxi / Uber</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-slate-800 flex gap-3">
+          <button type="button" id="btn-cancelar-manual" class="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs">
+            Cancelar
+          </button>
+          <button type="submit" class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs shadow-lg">
+            ✓ Autorizar y Abrir Barrera
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL DE CONFIRMACIÓN DEL BOTÓN DE PÁNICO
+       ========================================================================= -->
+  <div id="modal-panico" class="fixed inset-0 bg-red-950/90 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border-4 border-red-600 rounded-3xl max-w-md w-full p-8 text-center space-y-6 shadow-2xl animate-bounce">
+      <div class="w-20 h-20 mx-auto rounded-full bg-red-600/30 border-2 border-red-500 text-red-500 flex items-center justify-center text-4xl">
+        🚨
+      </div>
+      <div class="space-y-2">
+        <h3 class="text-2xl font-black text-white uppercase tracking-wider">¿Activar Protocolo de Pánico?</h3>
+        <p class="text-xs text-red-300">
+          Esta acción enviará una alerta prioritaria a la Policía Nacional, al Administrador General y activará la alarma sonora comunal.
+        </p>
+      </div>
+      <div class="flex gap-4">
+        <button id="btn-cancelar-panico" class="flex-1 py-3.5 rounded-2xl bg-slate-800 text-slate-300 font-bold text-xs hover:bg-slate-700">
+          Falsa Alarma (Cancelar)
+        </button>
+        <button id="btn-confirmar-panico" class="flex-1 py-3.5 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-black text-xs shadow-xl">
+          CONFIRMAR EMERGENCIA
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       JAVASCRIPT: RELOJ EN VIVO, LOGICA DE FEED Y SIMULADOR DE ESCANEO
+       ========================================================================= -->
+  <script>
+    // 1. RELOJ DIGITAL EN VIVO
+    function updateClock() {
+      const now = new Date();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+      document.getElementById("live-clock").innerText = `${hours}:${minutes}:${seconds}`;
+
+      const options = { weekday: 'short', day: '2-digit', month: 'short' };
+      document.getElementById("live-date").innerText = now.toLocaleDateString('es-ES', options).toUpperCase();
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // 2. MOCK DATA DEL FEED DE ACCESOS
+    let accessLogs = [
+      {
+        id: 1,
+        tiempo: "Hace 2 min",
+        visitante: "Juan Pérez",
+        tipo: "DELIVERY",
+        destino: "Torre A - 101",
+        metodo: "QR Validado",
+        placa: "Moto Honda (P-992)",
+        estado: "PERMITIDO"
+      },
+      {
+        id: 2,
+        tiempo: "Hace 14 min",
+        visitante: "Taxi Ejecutivo",
+        tipo: "TAXI",
+        destino: "Torre B - 302",
+        metodo: "Manual",
+        placa: "PBX-4091",
+        estado: "PERMITIDO"
+      },
+      {
+        id: 3,
+        tiempo: "Hace 31 min",
+        visitante: "Ing. Carlos Méndez",
+        tipo: "RESIDENTE",
+        destino: "Torre A - 102",
+        metodo: "Tag Vehicular",
+        placa: "PBY-7788",
+        estado: "PERMITIDO"
+      },
+      {
+        id: 4,
+        tiempo: "Hace 55 min",
+        visitante: "Visitante Desconocido",
+        tipo: "DELIVERY",
+        destino: "Torre B - 204",
+        metodo: "QR Vencido",
+        placa: "Sin placa",
+        estado: "DENEGADO"
+      }
+    ];
+
+    const feedContainer = document.getElementById("access-feed-container");
+    const badgeContador = document.getElementById("badge-contador-ingresos");
+
+    function renderFeed() {
+      feedContainer.innerHTML = "";
+      badgeContador.innerText = `${accessLogs.length} registros`;
+
+      accessLogs.forEach(log => {
+        const item = document.createElement("div");
+        const isPermitido = log.estado === "PERMITIDO";
+
+        item.className = `p-3.5 rounded-2xl border ${isPermitido ? 'bg-slate-950/70 border-slate-800' : 'bg-rose-950/30 border-rose-900/60'} flex items-start justify-between gap-3 transition-all`;
+
+        item.innerHTML = `
+          <div class="flex items-start gap-3">
+            <div class="w-10 h-10 rounded-xl ${isPermitido ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'} flex items-center justify-center text-lg shrink-0">
+              ${isPermitido ? '🚗' : '⛔'}
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <p class="text-xs font-bold text-white">${log.visitante}</p>
+                <span class="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 font-mono">${log.tipo}</span>
+              </div>
+              <p class="text-[11px] text-emerald-400 font-semibold mt-0.5">Destino: ${log.destino}</p>
+              <p class="text-[10px] text-slate-400 mt-0.5">${log.metodo} • ${log.placa}</p>
+            </div>
+          </div>
+          <div class="text-right shrink-0">
+            <span class="text-[10px] text-slate-400">${log.tiempo}</span>
+            <div class="mt-1">
+              <span class="text-[10px] px-2 py-0.5 rounded-md font-black ${isPermitido ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}">
+                ${log.estado}
+              </span>
+            </div>
+          </div>
+        `;
+
+        feedContainer.appendChild(item);
+      });
+    }
+
+    renderFeed();
+
+    // 3. SIMULADORES DE ESCANEO DE GARITA
+    document.getElementById("btn-sim-qr-ok").addEventListener("click", () => {
+      const nuevo = {
+        id: Date.now(),
+        tiempo: "Ahora mismo",
+        visitante: "Delivery Pizza Hut (Rodrigo C.)",
+        tipo: "DELIVERY",
+        destino: "Torre A - 101 (Laura V.)",
+        metodo: "QR Validado",
+        placa: "PBA-3321",
+        estado: "PERMITIDO"
+      };
+      accessLogs.unshift(nuevo);
+      renderFeed();
+      alert("🟢 [ACCESO PERMITIDO] Pase QR válido verificado para Torre A - 101. ¡Barrera abierta!");
+    });
+
+    document.getElementById("btn-sim-qr-vencido").addEventListener("click", () => {
+      const nuevo = {
+        id: Date.now(),
+        tiempo: "Ahora mismo",
+        visitante: "Pase Expirado / Usado",
+        tipo: "VISITA",
+        destino: "Torre B - 204",
+        metodo: "QR Inválido",
+        placa: "Sin datos",
+        estado: "DENEGADO"
+      };
+      accessLogs.unshift(nuevo);
+      renderFeed();
+      alert("🔴 [ACCESO DENEGADO - HTTP 403] El código QR presentado está vencido o ya fue utilizado anteriormente.");
+    });
+
+    // 4. LUZ AUXILIAR
+    let luzOn = false;
+    document.getElementById("btn-toggle-luz").addEventListener("click", () => {
+      luzOn = !luzOn;
+      document.getElementById("lbl-luz").innerText = luzOn ? "ON" : "OFF";
+      document.getElementById("lbl-luz").className = luzOn ? "text-amber-400" : "text-slate-200";
+    });
+
+    // 5. MODAL DE INGRESO MANUAL
+    const modalManual = document.getElementById("modal-manual");
+    document.getElementById("btn-ingreso-manual").addEventListener("click", () => modalManual.classList.remove("hidden"));
+    document.getElementById("btn-cerrar-manual").addEventListener("click", () => modalManual.classList.add("hidden"));
+    document.getElementById("btn-cancelar-manual").addEventListener("click", () => modalManual.classList.add("hidden"));
+
+    document.getElementById("form-ingreso-manual").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const nombre = document.getElementById("manual-nombre").value;
+      const placa = document.getElementById("manual-placa").value || "Peatonal";
+      const unidad = document.getElementById("manual-unidad").value;
+      const tipo = document.getElementById("manual-tipo").value;
+
+      accessLogs.unshift({
+        id: Date.now(),
+        tiempo: "Ahora mismo",
+        visitante: nombre,
+        tipo: tipo,
+        destino: unidad,
+        metodo: "Manual Guardia",
+        placa: placa,
+        estado: "PERMITIDO"
+      });
+
+      renderFeed();
+      modalManual.classList.add("hidden");
+      alert(`✅ Ingreso manual registrado para ${nombre} con destino a ${unidad}.`);
+      document.getElementById("form-ingreso-manual").reset();
+    });
+
+    // 6. BOTÓN DE PÁNICO
+    const modalPanico = document.getElementById("modal-panico");
+    document.getElementById("btn-panico").addEventListener("click", () => modalPanico.classList.remove("hidden"));
+    document.getElementById("btn-cancelar-panico").addEventListener("click", () => modalPanico.classList.add("hidden"));
+    document.getElementById("btn-confirmar-panico").addEventListener("click", () => {
+      modalPanico.classList.add("hidden");
+      alert("🚨🚨 [ALERTA DE SEGURIDAD EMITIDA] Se activó la señal de emergencia a la central de monitoreo y patrulla del sector.");
+    });
+
+    document.getElementById("btn-limpiar-feed").addEventListener("click", () => {
+      renderFeed();
+    });
+  </script>
+</body>
+</html>
