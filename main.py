@@ -13,10 +13,11 @@ from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from database import SessionLocal, engine
-from models import Base, Unit, User, UserRole
+from models import Base, CommonArea, Unit, User, UserRole
 from routers.auth import router as auth_router
 from routers.financial import router as financial_router
 from routers.payments import router as payments_router
+from routers.reservations import router as reservations_router
 from routers.security import router as security_router
 from routers.units import router as units_router
 from scheduler import shutdown_scheduler, start_scheduler
@@ -77,10 +78,40 @@ def seed_database_if_empty() -> None:
             )
             db.add(unidad)
             db.commit()
-            print(">> Datos iniciales sembrados con éxito:")
+            print(">> Usuarios y unidades iniciales sembrados con éxito:")
             print("   - Admin:     admin@condominio.com     / admin123")
             print("   - Residente: laura@condominio.com     / residente123")
             print("   - Guardia:   guardia@condominio.com   / guardia123")
+
+        # 5. Asegurar Áreas Comunales iniciales si no existen
+        if db.query(CommonArea).count() == 0:
+            bbq = CommonArea(
+                nombre="Área BBQ Panorámica",
+                aforo_maximo=25,
+                costo_reserva=20.00,
+                requiere_aprobacion=True,
+            )
+            piscina = CommonArea(
+                nombre="Piscina y Jacuzzi",
+                aforo_maximo=30,
+                costo_reserva=0.00,
+                requiere_aprobacion=False,
+            )
+            padel = CommonArea(
+                nombre="Cancha de Pádel / Tenis",
+                aforo_maximo=4,
+                costo_reserva=0.00,
+                requiere_aprobacion=False,
+            )
+            salon = CommonArea(
+                nombre="Salón Comunal de Eventos",
+                aforo_maximo=60,
+                costo_reserva=50.00,
+                requiere_aprobacion=True,
+            )
+            db.add_all([bbq, piscina, padel, salon])
+            db.commit()
+            print(">> Áreas Comunales sembradas: BBQ, Piscina, Pádel y Salón Comunal")
 
 
 @asynccontextmanager
@@ -127,6 +158,7 @@ app.include_router(units_router)
 app.include_router(payments_router)
 app.include_router(financial_router)
 app.include_router(security_router)
+app.include_router(reservations_router)
 
 
 # ==============================================================================

@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portal del Residente - Reservas de Áreas Comunales</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <style>
+    /* Estilos para animaciones de Toast y Modales */
+    @keyframes slideInRight {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .animate-slide-in {
+      animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .animate-modal-pop {
+      animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans antialiased">
+
+  <!-- =========================================================================
+       BARRA DE NAVEGACIÓN DEL PORTAL DEL RESIDENTE
+       ========================================================================= -->
+  <header class="bg-slate-900/90 backdrop-blur border-b border-slate-800 px-6 py-4 flex items-center justify-between sticky top-0 z-30">
+    <div class="flex items-center space-x-3">
+      <div class="w-9 h-9 rounded-xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center font-bold text-lg">
+        🏢
+      </div>
+      <div>
+        <h1 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+          <span>Portal Residencial</span>
+          <span class="text-xs px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 font-medium">Módulo Convivencia</span>
+        </h1>
+        <p class="text-xs text-slate-400">Torre A - 101 • Dra. Laura Valencia</p>
+      </div>
+    </div>
+
+    <!-- Acceso a Estado de Cuenta y Token -->
+    <div class="flex items-center space-x-3">
+      <a href="#estado-cuenta" id="link-finanzas" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition">
+        <span>💰 Estado de Cuenta</span>
+      </a>
+      <button id="btn-token-config" class="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition flex items-center gap-1.5">
+        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+        <span>Sesión Residente</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- =========================================================================
+       CONTENEDOR PRINCIPAL: FORMULARIO Y CALENDARIO
+       ========================================================================= -->
+  <main class="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+    <!-- COLUMNA IZQUIERDA: FORMULARIO DE RESERVA (5 Cols) -->
+    <section class="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl flex flex-col justify-between">
+      <div>
+        <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-800">
+          <div>
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+              <span>Nueva Reserva</span>
+            </h2>
+            <p class="text-xs text-slate-400">Seleccione el área comunal y horario de uso</p>
+          </div>
+          <span class="text-xs px-2 py-1 bg-slate-800 text-indigo-400 rounded-lg font-mono">Paso 1 de 2</span>
+        </div>
+
+        <form id="reservation-form" class="space-y-4">
+          <!-- 1. Selector de Área Comunal -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Área Comunal a Reservar:</label>
+            <select id="select-area" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:ring-2 focus:ring-indigo-500 outline-none">
+              <option value="">Cargando catálogo de áreas...</option>
+            </select>
+            <!-- Badge descriptivo del área seleccionada -->
+            <div id="area-details-badge" class="mt-2 p-2.5 rounded-xl bg-slate-950/60 border border-slate-800 text-xs text-slate-400 hidden">
+              <!-- Dinámico: Aforo y costo -->
+            </div>
+          </div>
+
+          <!-- 2. Fecha de Uso -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Fecha de la Reserva:</label>
+            <input type="date" id="input-date" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:ring-2 focus:ring-indigo-500 outline-none">
+          </div>
+
+          <!-- 3. Bloque de Horas (Inicio y Fin) -->
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Hora Inicio:</label>
+              <input type="time" id="input-time-start" value="14:00" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:ring-2 focus:ring-indigo-500 outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Hora Fin:</label>
+              <input type="time" id="input-time-end" value="18:00" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:ring-2 focus:ring-indigo-500 outline-none">
+            </div>
+          </div>
+
+          <!-- 4. Resumen de Políticas Comunitarias -->
+          <div class="bg-slate-950/40 border border-slate-800/80 rounded-xl p-3 text-xs text-slate-400 space-y-1">
+            <p class="flex items-center gap-1.5 text-slate-300 font-medium">
+              <span>⚖️ Reglamento de Convivencia:</span>
+            </p>
+            <ul class="list-disc list-inside space-y-0.5 text-[11px] text-slate-400">
+              <li>El titular de la reserva debe estar al día en sus alícuotas.</li>
+              <li>Respetar aforos máximos para evitar sanciones por ruido.</li>
+            </ul>
+          </div>
+
+          <!-- Botón de Envío -->
+          <button type="submit" id="btn-submit-reservation" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-bold rounded-xl text-sm transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2">
+            <span id="btn-text">Confirmar Solicitud de Reserva</span>
+            <span id="btn-spinner" class="hidden animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Simulador de Estado Financiero (Para pruebas del usuario) -->
+      <div class="mt-6 pt-4 border-t border-slate-800 text-xs flex items-center justify-between text-slate-400">
+        <span>Simulación de Morosidad:</span>
+        <button id="btn-toggle-mora" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] transition">
+          Alternar Estado Moroso/Al Día
+        </button>
+      </div>
+    </section>
+
+    <!-- COLUMNA DERECHA: CALENDARIO Y MIS RESERVAS (7 Cols) -->
+    <section class="lg:col-span-7 space-y-6">
+      
+      <!-- Panel de Ocupación del Área Seleccionada -->
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+              <span>Disponibilidad del Día</span>
+            </h3>
+            <p id="calendar-day-label" class="text-xs text-slate-400">Franjas horarias ocupadas y libres</p>
+          </div>
+          <span class="text-xs px-2.5 py-1 bg-slate-800 text-slate-300 rounded-full border border-slate-700">En tiempo real</span>
+        </div>
+
+        <div id="slots-container" class="space-y-2 max-h-56 overflow-y-auto pr-1 text-xs">
+          <p class="text-slate-500 italic text-center py-4">Seleccione una fecha y área para consultar horarios ocupados.</p>
+        </div>
+      </div>
+
+      <!-- Panel de Mis Solicitudes de Reserva -->
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-base font-bold text-white">Mis Reservas Registradas</h3>
+          <span id="my-reservations-count" class="text-xs px-2 py-0.5 bg-slate-800 text-slate-400 rounded-full">0 reservas</span>
+        </div>
+
+        <div id="my-reservations-list" class="space-y-2.5 max-h-60 overflow-y-auto pr-1 text-xs">
+          <p class="text-slate-500 italic text-center py-4">No tiene reservas registradas en este momento.</p>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- =========================================================================
+       SISTEMA DE NOTIFICACIONES TOAST (ALERTAS FLOTANTES)
+       ========================================================================= -->
+  <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none"></div>
+
+  <!-- =========================================================================
+       MODAL 1: ALERTA ROJA DE MOROSIDAD (HTTP 403)
+       ========================================================================= -->
+  <div id="modal-morosidad" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border-2 border-rose-500/80 rounded-3xl max-w-md w-full p-6 text-center shadow-2xl animate-modal-pop">
+      <div class="w-16 h-16 rounded-full bg-rose-500/20 text-rose-400 border border-rose-400/30 flex items-center justify-center text-3xl mx-auto mb-4">
+        ⚠️
+      </div>
+      <h3 class="text-xl font-extrabold text-rose-400 mb-2 uppercase tracking-tight">Acceso Restringido por Morosidad</h3>
+      <p id="morosidad-message" class="text-sm text-slate-200 mb-6">
+        Acceso restringido por morosidad. Por favor, ponga al día sus obligaciones para reservar áreas comunes.
+      </p>
+
+      <div class="bg-rose-950/40 border border-rose-900/60 rounded-xl p-3 text-xs text-rose-200 mb-6 flex justify-between items-center">
+        <span>Estado Financiero:</span>
+        <span class="font-bold text-rose-400">Alícuotas Pendientes/Vencidas</span>
+      </div>
+
+      <div class="flex flex-col sm:flex-row gap-2">
+        <button id="btn-cerrar-morosidad" class="flex-1 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition">
+          Cerrar
+        </button>
+        <button id="btn-ir-pagos" class="flex-1 px-4 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl text-xs transition shadow-lg shadow-rose-600/30 flex items-center justify-center gap-1.5">
+          <span>💳 Ir a Pagar Deuda</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL 2: ALERTA AMARILLA DE CONFLICTO DE HORARIOS (HTTP 409)
+       ========================================================================= -->
+  <div id="modal-conflicto" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border-2 border-amber-500/80 rounded-3xl max-w-md w-full p-6 text-center shadow-2xl animate-modal-pop">
+      <div class="w-16 h-16 rounded-full bg-amber-500/20 text-amber-400 border border-amber-400/30 flex items-center justify-center text-3xl mx-auto mb-4">
+        📅
+      </div>
+      <h3 class="text-xl font-extrabold text-amber-400 mb-2 uppercase tracking-tight">Horario No Disponible</h3>
+      <p id="conflicto-message" class="text-sm text-slate-200 mb-4">
+        El área comunal ya se encuentra reservada en el horario seleccionado. Por favor elija otro horario.
+      </p>
+      
+      <div id="conflicto-details" class="bg-amber-950/40 border border-amber-900/60 rounded-xl p-3 text-xs text-amber-200 mb-6 text-left">
+        <!-- Detalle de choque -->
+      </div>
+
+      <button id="btn-cerrar-conflicto" class="w-full px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl text-xs transition">
+        Elegir Otro Horario
+      </button>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL 3: CONFIGURACIÓN DE TOKEN JWT
+       ========================================================================= -->
+  <div id="modal-token" class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4">
+      <h3 class="text-lg font-bold text-white flex items-center gap-2">
+        <span>Sesión del Residente</span>
+      </h3>
+      <p class="text-xs text-slate-400">Token JWT del residente utilizado en las cabeceras de autorización.</p>
+      <textarea id="jwt-token-input" rows="4" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-xs text-indigo-400 font-mono outline-none"></textarea>
+      <div class="flex items-center justify-between pt-2">
+        <button id="btn-quick-login-residente" class="text-xs text-indigo-400 hover:underline">Autologin (laura@condominio.com)</button>
+        <div class="flex gap-2">
+          <button id="btn-close-token" class="px-3 py-1.5 text-xs bg-slate-800 text-slate-300 rounded-lg">Cerrar</button>
+          <button id="btn-save-token" class="px-3 py-1.5 text-xs bg-indigo-600 text-white font-semibold rounded-lg">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       LÓGICA JAVASCRIPT DEL CLIENTE (VANILLA JS MODERNO CON ASYNC/AWAIT)
+       ========================================================================= -->
+  <script>
+    // Variables de Estado
+    let authToken = localStorage.getItem("resident_auth_token") || "";
+    let catalogAreas = [];
+    let currentAreaId = null;
+
+    // Elementos del DOM
+    const selectArea = document.getElementById("select-area");
+    const inputDate = document.getElementById("input-date");
+    const inputTimeStart = document.getElementById("input-time-start");
+    const inputTimeEnd = document.getElementById("input-time-end");
+    const areaDetailsBadge = document.getElementById("area-details-badge");
+    const reservationForm = document.getElementById("reservation-form");
+    const btnSubmit = document.getElementById("btn-submit-reservation");
+    const btnText = document.getElementById("btn-text");
+    const btnSpinner = document.getElementById("btn-spinner");
+    const slotsContainer = document.getElementById("slots-container");
+    const myReservationsList = document.getElementById("my-reservations-list");
+    const myReservationsCount = document.getElementById("my-reservations-count");
+    const toastContainer = document.getElementById("toast-container");
+
+    // Modales
+    const modalMorosidad = document.getElementById("modal-morosidad");
+    const modalConflicto = document.getElementById("modal-conflicto");
+    const modalToken = document.getElementById("modal-token");
+    const jwtTokenInput = document.getElementById("jwt-token-input");
+
+    // Fecha mínima: Hoy
+    const todayStr = new Date().toISOString().split("T")[0];
+    inputDate.min = todayStr;
+    inputDate.value = todayStr;
+
+    // =========================================================================
+    // SISTEMA DE TOASTS FLOTANTES
+    // =========================================================================
+    function showToast(type, title, message) {
+      const toast = document.createElement("div");
+      toast.className = `pointer-events-auto p-4 rounded-2xl border shadow-xl flex items-start gap-3 animate-slide-in text-xs ${
+        type === "success"
+          ? "bg-emerald-950/95 border-emerald-500/70 text-emerald-100"
+          : type === "warning"
+          ? "bg-amber-950/95 border-amber-500/70 text-amber-100"
+          : "bg-rose-950/95 border-rose-500/70 text-rose-100"
+      }`;
+
+      const icon = type === "success" ? "✅" : type === "warning" ? "⚠️" : "🛑";
+
+      toast.innerHTML = `
+        <span class="text-base">${icon}</span>
+        <div class="flex-1">
+          <p class="font-bold text-white mb-0.5">${title}</p>
+          <p class="text-[11px] opacity-90">${message}</p>
+        </div>
+      `;
+
+      toastContainer.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.opacity = "0";
+        toast.style.transform = "translateX(100%)";
+        toast.style.transition = "all 0.3s ease";
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+
+    // =========================================================================
+    // CARGAR CATÁLOGO DE ÁREAS COMUNALES
+    // =========================================================================
+    async function loadCommonAreas() {
+      try {
+        const res = await fetch("/api/reservas/areas", {
+          headers: authToken ? { "Authorization": `Bearer ${authToken}` } : {}
+        });
+        if (res.ok) {
+          catalogAreas = await res.json();
+          selectArea.innerHTML = catalogAreas.map(a => `
+            <option value="${a.id}">${a.nombre} (${a.costo_reserva > 0 ? '$' + a.costo_reserva : 'Gratis'})</option>
+          `).join("");
+
+          if (catalogAreas.length > 0) {
+            currentAreaId = catalogAreas[0].id;
+            updateAreaBadge();
+            loadAreaCalendarSlots();
+          }
+        }
+      } catch (e) {
+        console.error("Error al cargar áreas:", e);
+      }
+    }
+
+    function updateAreaBadge() {
+      const selected = catalogAreas.find(a => a.id === selectArea.value);
+      if (selected) {
+        areaDetailsBadge.classList.remove("hidden");
+        areaDetailsBadge.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span>Aforo Máximo: <strong class="text-slate-200">${selected.aforo_maximo} personas</strong></span>
+            <span>Costo: <strong class="text-indigo-400">${selected.costo_reserva > 0 ? '$' + selected.costo_reserva : 'Gratuito'}</strong></span>
+          </div>
+          <div class="mt-1 text-[11px] text-slate-400">
+            ${selected.requiere_aprobacion ? '⚠️ Requiere aprobación del Administrador' : '⚡ Aprobación automática'}
+          </div>
+        `;
+      }
+    }
+
+    selectArea.addEventListener("change", () => {
+      currentAreaId = selectArea.value;
+      updateAreaBadge();
+      loadAreaCalendarSlots();
+    });
+
+    inputDate.addEventListener("change", () => {
+      loadAreaCalendarSlots();
+    });
+
+    // =========================================================================
+    // CONSULTAR DISPONIBILIDAD Y HORARIOS OCUPADOS
+    // =========================================================================
+    async function loadAreaCalendarSlots() {
+      if (!selectArea.value || !inputDate.value) return;
+
+      const dateVal = inputDate.value;
+      const startOfDay = `${dateVal}T00:00:00Z`;
+      const endOfDay = `${dateVal}T23:59:59Z`;
+
+      try {
+        const res = await fetch(`/api/reservas/calendario?area_id=${selectArea.value}&fecha_desde=${startOfDay}&fecha_hasta=${endOfDay}`, {
+          headers: authToken ? { "Authorization": `Bearer ${authToken}` } : {}
+        });
+
+        if (res.ok) {
+          const slots = await res.json();
+          document.getElementById("calendar-day-label").textContent = `Ocupación para el ${dateVal}`;
+
+          if (slots.length === 0) {
+            slotsContainer.innerHTML = `
+              <div class="p-4 rounded-xl bg-emerald-950/30 border border-emerald-900/40 text-center">
+                <p class="text-emerald-400 font-semibold">✨ Día completamente libre</p>
+                <p class="text-[11px] text-slate-400">No hay reservas aprobadas o solicitadas para esta fecha.</p>
+              </div>
+            `;
+          } else {
+            slotsContainer.innerHTML = slots.map(s => {
+              const start = new Date(s.fecha_hora_inicio).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              const end = new Date(s.fecha_hora_fin).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              const isApproved = s.estado === 'APROBADA';
+
+              return `
+                <div class="flex items-center justify-between p-2.5 rounded-xl border ${isApproved ? 'bg-rose-950/40 border-rose-900/60 text-rose-200' : 'bg-amber-950/40 border-amber-900/60 text-amber-200'}">
+                  <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full ${isApproved ? 'bg-rose-500' : 'bg-amber-400 animate-pulse'}"></span>
+                    <span class="font-bold">${start} - ${end}</span>
+                  </div>
+                  <span class="text-[10px] uppercase font-semibold px-2 py-0.5 rounded bg-black/40">${s.estado}</span>
+                </div>
+              `;
+            }).join("");
+          }
+        }
+      } catch (e) {
+        console.error("Error al cargar calendario:", e);
+      }
+    }
+
+    // =========================================================================
+    // ENVIAR SOLICITUD DE RESERVA (POST /api/reservas)
+    // =========================================================================
+    reservationForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      if (!authToken) {
+        showToast("error", "Autenticación Requerida", "Debe iniciar sesión como residente para realizar una reserva.");
+        modalToken.classList.remove("hidden");
+        return;
+      }
+
+      const areaId = selectArea.value;
+      const dateVal = inputDate.value;
+      const startVal = inputTimeStart.value;
+      const endVal = inputTimeEnd.value;
+
+      if (!areaId || !dateVal || !startVal || !endVal) {
+        showToast("warning", "Datos incompletos", "Por favor complete todos los campos de horario.");
+        return;
+      }
+
+      // Construir Timestamps ISO
+      const inicioIso = new Date(`${dateVal}T${startVal}:00`).toISOString();
+      const finIso = new Date(`${dateVal}T${endVal}:00`).toISOString();
+
+      if (new Date(finIso) <= new Date(inicioIso)) {
+        showToast("warning", "Horario Inválido", "La hora de fin debe ser posterior a la de inicio.");
+        return;
+      }
+
+      // UI: Spinner
+      btnText.textContent = "Validando disponibilidad y finanzas...";
+      btnSpinner.classList.remove("hidden");
+      btnSubmit.disabled = true;
+
+      try {
+        const response = await fetch("/api/reservas", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${authToken.trim()}`,
+          },
+          body: JSON.stringify({
+            area_id: areaId,
+            fecha_hora_inicio: inicioIso,
+            fecha_hora_fin: finIso,
+          }),
+        });
+
+        const data = await response.json();
+
+        // 1. CASO HTTP 403: BLOQUEO POR MOROSIDAD
+        if (response.status === 403) {
+          document.getElementById("morosidad-message").textContent = data.error || data.detail || "Acceso restringido por morosidad.";
+          modalMorosidad.classList.remove("hidden");
+          showToast("error", "Reserva Bloqueada", "Posee obligaciones pendientes de pago.");
+        }
+        // 2. CASO HTTP 409: CONFLICTO DE HORARIOS (OVERLAPPING)
+        else if (response.status === 409) {
+          document.getElementById("conflicto-message").textContent = data.error || data.detail;
+          if (data.conflicto_inicio && data.conflicto_fin) {
+            const ci = new Date(data.conflicto_inicio).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const cf = new Date(data.conflicto_fin).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            document.getElementById("conflicto-details").innerHTML = `
+              <p>Horario ocupado por otra reserva:</p>
+              <p class="font-bold text-white text-sm mt-0.5">${ci} - ${cf}</p>
+            `;
+          }
+          modalConflicto.classList.remove("hidden");
+          showToast("warning", "Horario Ocupado", "Elija un horario diferente.");
+        }
+        // 3. CASO HTTP 201: ÉXITO
+        else if (response.status === 201) {
+          showToast("success", "¡Reserva Creada!", `Su solicitud para ${data.area_nombre} fue registrada (${data.estado}).`);
+          loadAreaCalendarSlots();
+          loadMyReservations();
+        }
+        // OTROS ERRORES
+        else {
+          showToast("error", "Error", data.detail || "No se pudo procesar la reserva.");
+        }
+
+      } catch (networkError) {
+        showToast("error", "Error de Conexión", networkError.message);
+      } finally {
+        btnText.textContent = "Confirmar Solicitud de Reserva";
+        btnSpinner.classList.add("hidden");
+        btnSubmit.disabled = false;
+      }
+    });
+
+    // =========================================================================
+    // LISTAR MIS RESERVAS
+    // =========================================================================
+    async function loadMyReservations() {
+      if (!authToken) return;
+      try {
+        const res = await fetch("/api/reservas", {
+          headers: { "Authorization": `Bearer ${authToken}` }
+        });
+        if (res.ok) {
+          const list = await res.json();
+          myReservationsCount.textContent = `${list.length} reservas`;
+
+          if (list.length === 0) {
+            myReservationsList.innerHTML = `<p class="text-slate-500 italic text-center py-4">No tiene reservas registradas en este momento.</p>`;
+          } else {
+            myReservationsList.innerHTML = list.map(r => {
+              const start = new Date(r.fecha_hora_inicio).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+              const end = new Date(r.fecha_hora_fin).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              const isApproved = r.estado === 'APROBADA';
+
+              return `
+                <div class="p-3 rounded-2xl bg-slate-950/60 border border-slate-800 flex items-center justify-between">
+                  <div>
+                    <p class="font-bold text-white text-sm">${r.area_nombre}</p>
+                    <p class="text-[11px] text-slate-400">${start} - ${end}</p>
+                  </div>
+                  <div class="text-right">
+                    <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded ${isApproved ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'}">
+                      ${r.estado}
+                    </span>
+                    <span class="block text-[10px] text-slate-500 mt-0.5">${r.costo_reserva > 0 ? '$' + r.costo_reserva : 'Gratis'}</span>
+                  </div>
+                </div>
+              `;
+            }).join("");
+          }
+        }
+      } catch (e) {
+        console.error("Error al cargar mis reservas:", e);
+      }
+    }
+
+    // =========================================================================
+    // MANEJO DE MODALES
+    // =========================================================================
+    document.getElementById("btn-cerrar-morosidad").addEventListener("click", () => {
+      modalMorosidad.classList.add("hidden");
+    });
+    document.getElementById("btn-ir-pagos").addEventListener("click", () => {
+      modalMorosidad.classList.add("hidden");
+      alert("Redirigiendo a la pasarela de pagos / estado de cuenta...");
+    });
+    document.getElementById("btn-cerrar-conflicto").addEventListener("click", () => {
+      modalConflicto.classList.add("hidden");
+    });
+
+    // Token
+    document.getElementById("btn-token-config").addEventListener("click", () => {
+      jwtTokenInput.value = authToken;
+      modalToken.classList.remove("hidden");
+    });
+    document.getElementById("btn-close-token").addEventListener("click", () => {
+      modalToken.classList.add("hidden");
+    });
+    document.getElementById("btn-save-token").addEventListener("click", () => {
+      authToken = jwtTokenInput.value.trim();
+      localStorage.setItem("resident_auth_token", authToken);
+      modalToken.classList.add("hidden");
+      loadMyReservations();
+      showToast("success", "Token Actualizado", "Sesión de residente configurada.");
+    });
+
+    document.getElementById("btn-quick-login-residente").addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: "laura@condominio.com", password: "residente123" }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          authToken = data.access_token;
+          localStorage.setItem("resident_auth_token", authToken);
+          jwtTokenInput.value = authToken;
+          modalToken.classList.add("hidden");
+          showToast("success", "Sesión Iniciada", `Bienvenido(a), ${data.nombre_completo}`);
+          loadMyReservations();
+        }
+      } catch (e) {
+        alert("Error de conexión: " + e.message);
+      }
+    });
+
+    // Inicializar al cargar
+    window.addEventListener("DOMContentLoaded", () => {
+      loadCommonAreas();
+      if (authToken) {
+        loadMyReservations();
+      }
+    });
+  </script>
+</body>
+</html>

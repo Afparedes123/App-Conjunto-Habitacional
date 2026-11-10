@@ -17,6 +17,7 @@ from models import (
     PaymentMethod,
     PaymentValidationStatus,
     QRPassStatus,
+    ReservationStatus,
     UserRole,
     VisitType,
 )
@@ -219,3 +220,51 @@ class QRPassValidateResponse(BaseModel):
     fecha_hora_ingreso: datetime
     guardia_nombre: str
     access_log_id: uuid.UUID
+
+
+# ==============================================================================
+# ESQUEMAS DEL MÓDULO DE CONVIVENCIA Y RESERVAS
+# ==============================================================================
+
+class CommonAreaResponse(BaseModel):
+    """Área comunal disponible para reservas."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    nombre: str
+    aforo_maximo: int
+    costo_reserva: Decimal
+    requiere_aprobacion: bool
+
+
+class ReservationCreateRequest(BaseModel):
+    """Datos para solicitar una reserva de área comunal."""
+    area_id: uuid.UUID = Field(..., description="ID del área comunal a reservar")
+    fecha_hora_inicio: datetime = Field(..., description="Fecha y hora de inicio de la reserva")
+    fecha_hora_fin: datetime = Field(..., description="Fecha y hora de fin de la reserva")
+    unit_id: Optional[uuid.UUID] = Field(None, description="ID de la unidad del residente (opcional si tiene una asignada)")
+
+
+class ReservationResponse(BaseModel):
+    """Detalle de la reserva registrada en el sistema."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    unit_id: uuid.UUID
+    unit_identificador: str
+    area_id: uuid.UUID
+    area_nombre: str
+    fecha_hora_inicio: datetime
+    fecha_hora_fin: datetime
+    estado: ReservationStatus
+    costo_reserva: Decimal
+    requiere_aprobacion: bool
+
+
+class ReservationCalendarSlot(BaseModel):
+    """Franja horaria reservada para visualizar en el calendario."""
+    id: uuid.UUID
+    area_id: uuid.UUID
+    fecha_hora_inicio: datetime
+    fecha_hora_fin: datetime
+    estado: ReservationStatus

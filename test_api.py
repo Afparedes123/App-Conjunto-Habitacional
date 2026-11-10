@@ -530,6 +530,9 @@ def test_validar_pase_qr_errores_y_expiracion():
     with SessionLocal() as db:
         u101 = db.query(Unit).filter(Unit.identificador == "Torre A - 101").first()
         hash_expirado = "hash_expirado_test_999"
+        db.query(QRPass).filter(QRPass.hash_qr == hash_expirado).delete()
+        db.commit()
+
         pase_expirado = QRPass(
             unit_id=u101.id,
             nombre_visitante="Visitante Vencido",
@@ -576,9 +579,221 @@ def test_validar_pase_qr_errores_y_expiracion():
     assert "html5-qrcode" in res_html.text
 
 
+# ==============================================================================
+# PRUEBAS DEL MÓDULO DE CONVIVENCIA Y MOTOR DE RESERVAS
+# ==============================================================================
+
+def test_reservas_bloqueo_morosidad_403():
+    """
+    Verifica que el motor de reservas bloquee a residentes con deudas morosas:
+    - Retorna HTTP 403 Forbidden con el mensaje exacto requerido.
+    """
+    from database import SessionLocal
+    from models import CommonArea, FinancialObligation, ObligationStatus, ObligationType, Unit
+
+    token_residente = client.post(
+        "/api/auth/login", json={"email": "laura@condominio.com", "password": "residente123"}
+    ).json()["access_token"]
+
+    with SessionLocal() as db:
+        u101 = db.query(Unit).filter(Unit.identificador == "Torre A - 101").first()
+        area = db.query(CommonArea).first()
+        assert area is not None, "Debe existir al menos un área común sembrada"
+
+        # Limpiar obligaciones morosas previas de prueba e insertar una vencida
+        db.query(FinancialObligation).filter(
+            FinancialObligation.unit_id == u101.id,
+            FinancialObligation.concepto.like("%Mora Bloqueo Reservas%"),
+        ).delete()
+        db.commit()
+
+        deuda_morosa = FinancialObligation(
+            unit_id=u101.id,
+            tipo=ObligationType.MULTA,
+            concepto="Mora Bloqueo Reservas",
+            monto=Decimal("75.00"),
+            fecha_emision=date(2026, 1, 1),
+            fecha_vencimiento=date(2026, 1, 10),
+            estado=ObligationStatus.VENCIDA,
+        )
+        db.add(deuda_morosa)
+        db.commit()
+        area_id = str(area.id)
+
+    # Residente intenta reservar estando en mora -> 403 Forbidden
+    payload = {
+        "area_id": area_id,
+        "fecha_hora_inicio": "2027-07-15T10:00:00Z",
+        "fecha_hora_fin": "2027-07-15T14:00:00Z",
+    }
+    res = client.post(
+        "/api/reservas",
+        json=payload,
+        headers={"Authorization": f"Bearer {token_residente}"},
+    )
+    assert res.status_code == 403
+    body = res.json()
+    assert (
+        body["error"]
+        == "Acceso restringido por morosidad. Por favor, ponga al día sus obligaciones para reservar áreas comunes."
+    )
+    assert body["deuda_total"] >= 75.0
+
+
+def test_reservas_creacion_exitosa_201():
+    """
+    Verifica que un residente al día en sus pagos pueda crear una reserva exitosa:
+    - Retorna HTTP 201 Created con estado 'SOLICITADA' o 'APROBADA'.
+    """
+    from database import SessionLocal
+    from models import CommonArea, FinancialObligation, ObligationStatus, Reservation, Unit
+
+    token_residente = client.post(
+        "/api/auth/login", json={"email": "laura@condominio.com", "password": "residente123"}
+    ).json()["access_token"]
+
+    with SessionLocal() as db:
+        u101 = db.query(Unit).filter(Unit.identificador == "Torre A - 101").first()
+        area = db.query(CommonArea).first()
+
+        # Limpiar deudas pendientes/vencidas de prueba para poner al día la unidad
+        db.query(FinancialObligation).filter(
+            FinancialObligation.unit_id == u101.id,
+            FinancialObligation.estado.in_([ObligationStatus.VENCIDA, ObligationStatus.PENDIENTE]),
+        ).delete()
+
+        # Limpiar reservas previas en ese slot
+        inicio_dt = datetime(2027, 8, 20, 10, 0, 0, tzinfo=timezone.utc)
+        fin_dt = datetime(2027, 8, 20, 14, 0, 0, tzinfo=timezone.utc)
+        db.query(Reservation).filter(
+            Reservation.area_id == area.id,
+            Reservation.fecha_hora_inicio == inicio_dt,
+        ).delete()
+        db.commit()
+        area_id = str(area.id)
+
+    payload = {
+        "area_id": area_id,
+        "fecha_hora_inicio": "2027-08-20T10:00:00Z",
+        "fecha_hora_fin": "2027-08-20T14:00:00Z",
+    }
+    res = client.post(
+        "/api/reservas",
+        json=payload,
+        headers={"Authorization": f"Bearer {token_residente}"},
+    )
+    assert res.status_code == 201
+    data = res.json()
+    assert data["unit_identificador"] == "Torre A - 101"
+    assert data["area_id"] == area_id
+    assert data["estado"] in ["SOLICITADA", "APROBADA"]
+    assert "id" in data
+
+
+def test_reservas_conflicto_horario_409():
+    """
+    Verifica la detección matemática de solapamiento de horarios (A < D AND B > C):
+    - Retorna HTTP 409 Conflict si ya existe una reserva activa en ese intervalo.
+    """
+    from database import SessionLocal
+    from models import CommonArea
+
+    token_residente = client.post(
+        "/api/auth/login", json={"email": "laura@condominio.com", "password": "residente123"}
+    ).json()["access_token"]
+
+    with SessionLocal() as db:
+        area = db.query(CommonArea).first()
+        area_id = str(area.id)
+
+    # Intento de reserva solapada: 12:00 a 16:00 se superpone con la reserva existente 10:00 a 14:00
+    payload_solapado = {
+        "area_id": area_id,
+        "fecha_hora_inicio": "2027-08-20T12:00:00Z",
+        "fecha_hora_fin": "2027-08-20T16:00:00Z",
+    }
+    res = client.post(
+        "/api/reservas",
+        json=payload_solapado,
+        headers={"Authorization": f"Bearer {token_residente}"},
+    )
+    assert res.status_code == 409
+    body = res.json()
+    assert "error" in body
+    assert "ya se encuentra reservada" in body["error"]
+    assert "conflicto_inicio" in body
+
+
+def test_reservas_catalogo_calendario_y_rbac():
+    """
+    Verifica endpoints auxiliares del módulo de reservas y control de acceso:
+    - GET /api/reservas/areas (Catálogo de áreas) -> 200 OK
+    - GET /api/reservas/calendario (Franjas ocupadas) -> 200 OK
+    - GET /api/reservas (Historial de la unidad) -> 200 OK
+    - GET /api/reservas/interfaz (SPA HTML del residente) -> 200 OK
+    - POST /api/reservas ejecutado por admin o guardia -> 403 Forbidden
+    """
+    from database import SessionLocal
+    from models import CommonArea
+
+    token_residente = client.post(
+        "/api/auth/login", json={"email": "laura@condominio.com", "password": "residente123"}
+    ).json()["access_token"]
+
+    token_admin = client.post(
+        "/api/auth/login", json={"email": "admin@condominio.com", "password": "admin123"}
+    ).json()["access_token"]
+
+    # 1. Catálogo de áreas
+    res_areas = client.get(
+        "/api/reservas/areas",
+        headers={"Authorization": f"Bearer {token_residente}"},
+    )
+    assert res_areas.status_code == 200
+    areas = res_areas.json()
+    assert len(areas) >= 1
+
+    first_area_id = areas[0]["id"]
+
+    # 2. Calendario de disponibilidad
+    res_cal = client.get(
+        f"/api/reservas/calendario?area_id={first_area_id}",
+        headers={"Authorization": f"Bearer {token_residente}"},
+    )
+    assert res_cal.status_code == 200
+    assert isinstance(res_cal.json(), list)
+
+    # 3. Historial de reservas del residente
+    res_historial = client.get(
+        "/api/reservas",
+        headers={"Authorization": f"Bearer {token_residente}"},
+    )
+    assert res_historial.status_code == 200
+    assert isinstance(res_historial.json(), list)
+
+    # 4. Interfaz web HTML
+    res_ui = client.get("/api/reservas/interfaz")
+    assert res_ui.status_code == 200
+    assert "Reservas de Áreas Comunales" in res_ui.text
+    assert "Módulo Convivencia" in res_ui.text
+
+    # 5. RBAC: Administrador intentando crear reserva sin rol de residente -> 403
+    res_admin_forbidden = client.post(
+        "/api/reservas",
+        json={
+            "area_id": first_area_id,
+            "fecha_hora_inicio": "2027-09-01T10:00:00Z",
+            "fecha_hora_fin": "2027-09-01T12:00:00Z",
+        },
+        headers={"Authorization": f"Bearer {token_admin}"},
+    )
+    assert res_admin_forbidden.status_code == 403
+    assert res_admin_forbidden.json()["detail"] == "Privilegios insuficientes"
+
+
 if __name__ == "__main__":
     print("=" * 80)
-    print("EJECUTANDO SUITE COMPLETA DE PRUEBAS (AUTH, RBAC, FINANZAS Y CONTROL QR)")
+    print("EJECUTANDO SUITE COMPLETA DE PRUEBAS (AUTH, RBAC, FINANZAS, QR Y RESERVAS)")
     print("=" * 80)
     setup_module()
     test_auth_login_invalid_credentials()
@@ -603,6 +818,15 @@ if __name__ == "__main__":
     print("✓ [PASS] test_generar_y_validar_pase_qr_flow (Generación Base64, validación garita y log)")
     test_validar_pase_qr_errores_y_expiracion()
     print("✓ [PASS] test_validar_pase_qr_errores_y_expiracion (403 expirado/usado, 404 inexistente y UI)")
+    test_reservas_bloqueo_morosidad_403()
+    print("✓ [PASS] test_reservas_bloqueo_morosidad_403 (Bloqueo financiero 403 con mensaje exacto)")
+    test_reservas_creacion_exitosa_201()
+    print("✓ [PASS] test_reservas_creacion_exitosa_201 (Creación exitosa 201 para residente al día)")
+    test_reservas_conflicto_horario_409()
+    print("✓ [PASS] test_reservas_conflicto_horario_409 (Detección de solapamiento 409 Conflict)")
+    test_reservas_catalogo_calendario_y_rbac()
+    print("✓ [PASS] test_reservas_catalogo_calendario_y_rbac (Catálogos, calendario, interfaz y RBAC)")
     print("=" * 80)
-    print("¡TODAS LAS PRUEBAS DEL SISTEMA PASARON SATISFACTORIAMENTE (11/11)!")
+    print("¡TODAS LAS PRUEBAS DEL SISTEMA PASARON SATISFACTORIAMENTE (15/15)!")
     print("=" * 80)
+
